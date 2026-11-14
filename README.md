@@ -27,6 +27,17 @@ Three layers, in order of authority:
 
 Without an account the app still works end to end; it just stays on one device.
 
+## Deploying a change
+
+```bash
+./bump-version.sh && git add -A && git commit -m "..." && git push
+```
+
+The script stamps every local script and stylesheet in `index.html` with a fresh
+`?v=` so returning visitors get the new build. Without it GitHub Pages' long asset
+cache keeps serving the previous one — which is exactly how a freshly deployed key
+sat unused until a hard refresh.
+
 ## Setting up sync (once)
 
 1. In your Supabase project, open **SQL Editor** and run [`supabase/schema.sql`](supabase/schema.sql).
