@@ -128,12 +128,15 @@
         .textContent = (opts.targetLabel || 'target') + ' ' + fmt(opts.target, opts.dp);
     }
 
-    // x labels — thinned so they never collide
+    // x labels — thinned so they never collide. The last point always gets
+    // one, so a regular label that would land right beside it gives way.
     var labels = sets[0].points.map(function (p) { return p.x; });
     var every = Math.ceil(n / 8);
     labels.forEach(function (lb, i) {
-      if (i % every !== 0 && i !== n - 1) return;
-      el('text', { x: X(i), y: H - 10, class: 'tick tick-x', 'text-anchor': 'middle' }, svg).textContent = lb;
+      var isLast = i === n - 1;
+      if (!isLast && (i % every !== 0 || (n - 1 - i) < every * 0.6)) return;
+      el('text', { x: X(i), y: H - 10, class: 'tick tick-x',
+                   'text-anchor': isLast && n > 1 ? 'end' : (i === 0 && n > 1 ? 'start' : 'middle') }, svg).textContent = lb;
     });
 
     sets.forEach(function (s, si) {
@@ -382,8 +385,10 @@
     var max = Math.max.apply(null, cells.map(function (c) { return c.value || 0; })) || 1;
     var tip = makeTip(host);
 
+    // The grid starts on a Monday, so rows 0, 2 and 4 are Monday, Wednesday
+    // and Friday.
     ['M', 'W', 'F'].forEach(function (d, i) {
-      el('text', { x: 0, y: 12 + (i * 2 + 1) * (cell + gap), class: 'tick tick-y' }, svg).textContent = d;
+      el('text', { x: 14, y: 6 + (i * 2) * (cell + gap) + 12, class: 'tick tick-y' }, svg).textContent = d;
     });
 
     cells.forEach(function (c, i) {
@@ -443,7 +448,6 @@
     ring: ring,
     heatmap: heatmap,
     gauge: gauge,
-    seriesColor: series,
     fmt: fmt
   };
 

@@ -2,10 +2,10 @@
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>BodyKaLogic — fitness backed by data</title>
 <meta name="description" content="BodyKaLogic — fitness backed by data, not guesswork. Track training, food and body composition, and sync it across your devices.">
-<link rel="stylesheet" href="assets/styles.css?v=202611150351">
+<link rel="stylesheet" href="assets/styles.css?v=202611150429">
 <!-- The tab icon is the badge itself, cropped to the stamp. Built by
      assets/src/make-icons.py, which names each file after its own content hash:
      a changed icon is a changed URL, so no cache at any layer can go on serving
@@ -13,30 +13,46 @@
 <link rel="icon" type="image/x-icon" href="assets/icon-59f9e736.ico">
 <link rel="apple-touch-icon" href="assets/icon-touch-8ce7d6ce.png">
 <meta name="theme-color" content="#0b0c0f">
+<!-- The theme is a choice made on this device. Applying it here, before the
+     stylesheet has painted anything, is what stops a light-theme user getting a
+     flash of the dark one on every load. -->
+<script>
+  try {
+    var t = localStorage.getItem('bkl.theme');
+    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) {}
+</script>
 </head>
 <body>
 
-<div id="boot" class="empty-state" style="padding-top:22vh">
-  <h3>Loading your data…</h3>
-  <p>Checking where your data is.</p>
+<noscript>
+  <div class="empty-state" style="padding-top:22vh">
+    <h3>BodyKaLogic needs JavaScript</h3>
+    <p>Turn JavaScript on in your browser settings and reload this page.</p>
+  </div>
+</noscript>
+
+<div id="boot" class="boot" role="status">
+  <div class="spinner" aria-hidden="true"></div>
+  <p>Loading BodyKaLogic…</p>
 </div>
 
 <div class="app" id="app" hidden>
-  <nav class="sidebar">
+  <nav class="sidebar" aria-label="Main">
     <div class="brand">
-      <img class="brand-logo" src="assets/wordmark-on-dark.png?v=202611150351" alt="BodyKaLogic — train smart, grow strong" width="440" height="304">
+      <img class="brand-logo" src="assets/wordmark-on-dark.png?v=202611150429" alt="BodyKaLogic — train smart, grow strong" width="440" height="304">
     </div>
-    <button class="nav-item" data-view="home"><span class="nav-icon">◆</span> Home</button>
-    <button class="nav-item" data-view="plan"><span class="nav-icon">▦</span> Workout plan</button>
-    <button class="nav-item" data-view="diet"><span class="nav-icon">◍</span> Diet plan</button>
+    <button class="nav-item" type="button" data-view="home"><span class="nav-icon" aria-hidden="true"></span><span class="nav-label">Home</span></button>
+    <button class="nav-item" type="button" data-view="plan"><span class="nav-icon" aria-hidden="true"></span><span class="nav-label">Workout plan</span></button>
+    <button class="nav-item" type="button" data-view="diet"><span class="nav-icon" aria-hidden="true"></span><span class="nav-label">Diet plan</span></button>
     <div class="nav-sep"></div>
-    <button class="nav-item" data-view="log"><span class="nav-icon">✓</span> Today's session</button>
-    <button class="nav-item" data-view="nutrition"><span class="nav-icon">◐</span> Nutrition log</button>
-    <button class="nav-item" data-view="maxes"><span class="nav-icon">▲</span> Strength maxes</button>
-    <button class="nav-item" data-view="body"><span class="nav-icon">◉</span> Body</button>
+    <button class="nav-item" type="button" data-view="log"><span class="nav-icon" aria-hidden="true"></span><span class="nav-label">Today's session</span></button>
+    <button class="nav-item" type="button" data-view="nutrition"><span class="nav-icon" aria-hidden="true"></span><span class="nav-label">Nutrition log</span></button>
+    <button class="nav-item" type="button" data-view="maxes"><span class="nav-icon" aria-hidden="true"></span><span class="nav-label">Strength maxes</span></button>
+    <button class="nav-item" type="button" data-view="body"><span class="nav-icon" aria-hidden="true"></span><span class="nav-label">Body</span></button>
     <div class="nav-sep"></div>
-    <button class="nav-item" data-view="progress"><span class="nav-icon">◇</span> Progress</button>
-    <button class="nav-item" data-view="profile"><span class="nav-icon">⚙</span> Profile</button>
+    <button class="nav-item" type="button" data-view="progress"><span class="nav-icon" aria-hidden="true"></span><span class="nav-label">Progress</span></button>
+    <button class="nav-item" type="button" data-view="profile"><span class="nav-icon" aria-hidden="true"></span><span class="nav-label">Profile</span></button>
     <div class="sidebar-foot">
       <div id="storage-chip"></div>
     </div>
@@ -45,12 +61,12 @@
   <main class="main">
     <header class="topbar">
       <div class="page-title">
-        <h1 id="view-title">Dashboard</h1>
+        <h1 id="view-title">Home</h1>
         <small id="view-sub"></small>
       </div>
       <div class="spacer"></div>
-      <div id="topbar-extra"></div>
-      <button class="btn btn-sm" id="theme-toggle" title="Switch theme">◐ Theme</button>
+      <div id="topbar-chip"></div>
+      <button class="btn btn-sm btn-icon" type="button" id="theme-toggle" title="Switch theme" aria-label="Switch theme"></button>
     </header>
 
     <section class="view" id="view-home"></section>
@@ -66,26 +82,27 @@
 </div>
 
 <div id="onboard-root"></div>
-<div class="toasts" id="toasts"></div>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 
-<script src="src/config.js?v=202611150351"></script>
-<script src="src/store.js?v=202611150351"></script>
-<script src="src/sync.js?v=202611150351"></script>
-<script src="src/data-exercises.js?v=202611150351"></script>
-<script src="src/data-foods.js?v=202611150351"></script>
-<script src="src/data-meals.js?v=202611150351"></script>
-<script src="src/data-quotes.js?v=202611150351"></script>
-<script src="src/plan.js?v=202611150351"></script>
-<script src="src/diet.js?v=202611150351"></script>
-<script src="src/mealphoto.js?v=202611150351"></script>
-<script src="src/parse.js?v=202611150351"></script>
-<script src="src/charts.js?v=202611150351"></script>
-<script src="src/ui.js?v=202611150351"></script>
-<script src="src/state.js?v=202611150351"></script>
-<script src="src/views.js?v=202611150351"></script>
-<script src="src/views2.js?v=202611150351"></script>
-<script src="src/views3.js?v=202611150351"></script>
-<script src="src/views4.js?v=202611150351"></script>
-<script src="src/app.js?v=202611150351"></script>
+<script src="src/config.js?v=202611150429"></script>
+<script src="src/store.js?v=202611150429"></script>
+<script src="src/sync.js?v=202611150429"></script>
+<script src="src/data-exercises.js?v=202611150429"></script>
+<script src="src/data-foods.js?v=202611150429"></script>
+<script src="src/data-meals.js?v=202611150429"></script>
+<script src="src/data-quotes.js?v=202611150429"></script>
+<script src="src/plan.js?v=202611150429"></script>
+<script src="src/diet.js?v=202611150429"></script>
+<script src="src/mealphoto.js?v=202611150429"></script>
+<script src="src/parse.js?v=202611150429"></script>
+<script src="src/charts.js?v=202611150429"></script>
+<script src="src/ui.js?v=202611150429"></script>
+<script src="src/state.js?v=202611150429"></script>
+<script src="src/views.js?v=202611150429"></script>
+<script src="src/views2.js?v=202611150429"></script>
+<script src="src/views3.js?v=202611150429"></script>
+<script src="src/views4.js?v=202611150429"></script>
+<script src="src/auth.js?v=202611150429"></script>
+<script src="src/app.js?v=202611150429"></script>
 </body>
 </html>

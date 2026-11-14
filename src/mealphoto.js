@@ -1,9 +1,8 @@
 /* mealphoto.js — logging a meal from a photo and from household portions.
  *
- * The photo is a record, not a measurement. Nothing in this app sends data
- * anywhere, so there is no model available to look at the picture — the macros
- * come from what you tell it is on the plate, and the photo is stored alongside
- * the entry so the log shows the actual meal.
+ * The photo is a record, not a measurement. Nothing looks at the picture to
+ * work out what is in it — the macros come from what you say is on the plate,
+ * and the photo is stored alongside the entry so the log shows the actual meal.
  *
  * Entering the plate is built to take seconds rather than to be exhaustive: tap
  * the household portions people actually measure in — two rotis, a katori of dal,
@@ -58,9 +57,9 @@
 
   /* ------------------------------------------------------------ photo handling */
 
-  /* Downscale before anything else: a 12 MP phone photo is ~4 MB, and these are
-   * written into the data file and (optionally) uploaded. 900 px on the long edge
-   * is plenty to recognise a plate of food. */
+  /* Downscale before anything else: a 12 MP phone photo is ~4 MB, and a stored
+   * photo travels with the rest of the state on every save. A few hundred pixels
+   * on the long edge is plenty to recognise a plate of food. */
   function readPhoto(file, maxEdge) {
     maxEdge = maxEdge || 900;
     return new Promise(function (resolve, reject) {
@@ -79,13 +78,7 @@
         canvas.getContext('2d').drawImage(img, 0, 0, cw, ch);
         URL.revokeObjectURL(url);
         var dataUrl = canvas.toDataURL('image/jpeg', 0.78);
-        resolve({
-          dataUrl: dataUrl,
-          base64: dataUrl.replace(/^data:image\/jpeg;base64,/, ''),
-          mediaType: 'image/jpeg',
-          width: cw, height: ch,
-          bytes: Math.round(dataUrl.length * 0.75)
-        });
+        resolve({ dataUrl: dataUrl, width: cw, height: ch });
       };
       img.onerror = function () {
         URL.revokeObjectURL(url);

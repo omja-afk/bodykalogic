@@ -2,15 +2,9 @@
  *
  * One job: keep a copy of the state on this device so the app works with no
  * network, and hand it back on the next load. `localStorage` is the whole
- * mechanism — the cloud copy in sync.js is the source of truth, and this is the
- * offline cache in front of it.
- *
- * An earlier version also wrote to a folder chosen through the File System
- * Access API. That was dropped: it could never do what it was asked to (a
- * browser cannot open a path like Desktop/BodyKaLogic/progress from a string —
- * the user must pick it, every new browser, by hand), and once sync existed it
- * was a third copy that could disagree with the other two. Export and import
- * cover the "a file I own" case without any of that.
+ * mechanism — the account's copy (sync.js) is the source of truth, and this is
+ * the offline cache in front of it. Export and import cover the "a file I own"
+ * case.
  */
 (function (global) {
   'use strict';
@@ -115,6 +109,8 @@
         LEGACY_KEYS.forEach(function (k) { global.localStorage.removeItem(k); });
       } catch (e) {}
       lastSaved = null;
+      lastError = null;
+      failures = 0;
       emit();
       return Promise.resolve();
     }

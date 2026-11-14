@@ -173,9 +173,15 @@
     var exclude = day.slots.map(function (s) { return s.exId; });
 
     if (!current) {
-      // Imported slot with no library match — offer the whole pattern pool.
+      // An imported line the library could not place. Its pattern is a guess,
+      // so narrowing by it would offer the wrong things with confidence; offer
+      // everything the equipment allows instead and let the search do the work.
       return EX.pool(plan.equipment, avoid).filter(function (c) {
-        return c.pattern === slot.pattern && exclude.indexOf(c.id) === -1;
+        return exclude.indexOf(c.id) === -1;
+      }).map(function (c) {
+        var copy = Object.create(c);
+        copy.tier = 'direct';
+        return copy;
       });
     }
     return EX.alternatives(current, plan.equipment, avoid, exclude);
@@ -186,12 +192,16 @@
     var ex = EX.byId(exId);
     if (!ex) return plan;
     var slot = plan.days[dayIdx].slots[slotIdx];
+    var was = EX.byId(slot.exId);
     slot.exId = ex.id;
     slot.name = ex.name;
+    slot.pattern = slot.pattern === 'cardio' ? 'cardio' : (was ? slot.pattern : ex.pattern);
+    slot.importedAs = null;
     // Prescription follows the movement: an isolation swap for a compound should
-    // not inherit 5x5.
+    // not inherit 5x5. Like for like keeps the sets and reps already there —
+    // they may be the user's own, or their trainer's.
     var rx = GOAL_RX[plan.goal] || GOAL_RX.muscle;
-    if (slot.pattern !== 'cardio') {
+    if (slot.pattern !== 'cardio' && (!was || was.compound !== ex.compound)) {
       var p = ex.compound ? rx.compound : rx.iso;
       slot.sets = p.sets;
       slot.reps = p.reps[0] + '-' + p.reps[1];
@@ -209,7 +219,10 @@
       var used = [];
       day.slots.forEach(function (slot) {
         var cur = EX.byId(slot.exId);
-        if (cur && EX.available(cur, EX.profileHas(profileId)) &&
+        // A line the library does not know is the user's own. There is no way
+        // to tell what equipment it needs, so it stays exactly as written.
+        if (!cur) return;
+        if (EX.available(cur, EX.profileHas(profileId)) &&
             !avoid.some(function (t) { return cur.tags.indexOf(t) !== -1; })) {
           used.push(cur.id);
           return;
@@ -229,8 +242,6 @@
 
   global.PlanGen = {
     GOAL_RX: GOAL_RX,
-    WEEK_SCHEDULE: WEEK_SCHEDULE,
-    SPLITS: SPLITS,
     generate: generate,
     alternativesForSlot: alternativesForSlot,
     applySwap: applySwap,

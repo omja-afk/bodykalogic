@@ -1,33 +1,38 @@
-/* app.js — boot sequence, routing, and the optional guided setup.
+/* app.js — boot sequence, routing, and the guided setup.
  *
  * Boot order, and why it is this order:
- *   1. read this device's localStorage copy — instant, and works with no network
- *   2. if a session is stored, pull the account's copy from Supabase
- *   3. if both have content and they differ, ask which one wins rather than
- *      guessing — a wrong silent merge loses a workout
- *   4. show the app either way. A cloud that is slow, unreachable or signed out
- *      never blocks the first paint, and a new visitor lands on Home, not a form
- *
- * There is no folder and no "info path": the account is what follows you
- * between devices. store.js records why the folder tier was dropped.
+ *   1. read this device's local copy — instant, and works with no network
+ *   2. if a session is stored, pull the account's copy
+ *   3. decide which copy opens. Almost always that needs no question: either
+ *      this device has nothing unsent (the account's copy wins) or the account
+ *      has not moved since this device last agreed with it (this device's
+ *      wins). Only when both have changed is the user asked
+ *   4. signed in, the app opens — offline too, from the local copy. Signed out,
+ *      the sign-in screen is the whole page
  */
 (function (global) {
   'use strict';
 
   var UI = global.UI, h = UI.h;
   var S = global.State, Views = global.Views;
+  var Sync = global.Sync, Store = global.Store;
+
+  var THEME_KEY = 'bkl.theme';
 
   var VIEWS = {
-    home:      { title: 'Home',            sub: 'where everything stands today' },
-    plan:      { title: 'Workout plan',    sub: 'your split, and every alternative for it' },
-    diet:      { title: 'Diet plan',       sub: 'seven days built to your targets' },
-    log:       { title: "Today's session", sub: 'log sets, reps and weight' },
-    nutrition: { title: 'Nutrition log',   sub: 'what you actually ate' },
-    maxes:     { title: 'Strength maxes',  sub: 'max weight and max reps per exercise' },
-    body:      { title: 'Body',            sub: 'weight, BMI and measurements' },
-    progress:  { title: 'Progress',        sub: 'trends, volume and consistency' },
-    profile:   { title: 'Profile',  sub: 'your answers, your account, and where everything is stored' }
+    home:      { title: 'Home',            icon: 'home',      sub: 'where everything stands today' },
+    plan:      { title: 'Workout plan',    icon: 'dumbbell',  sub: 'your split, and every alternative for it' },
+    diet:      { title: 'Diet plan',       icon: 'utensils',  sub: 'seven days built to your targets' },
+    log:       { title: "Today's session", icon: 'clipboard', sub: 'log sets, reps and weight' },
+    nutrition: { title: 'Nutrition log',   icon: 'flame',     sub: 'what you actually ate' },
+    maxes:     { title: 'Strength maxes',  icon: 'trending',  sub: 'max weight and max reps per exercise' },
+    body:      { title: 'Body',            icon: 'scale',     sub: 'weight, BMI and measurements' },
+    progress:  { title: 'Progress',        icon: 'chart',     sub: 'trends, volume and consistency' },
+    profile:   { title: 'Profile',         icon: 'user',      sub: 'your details, your targets and your account' }
   };
+
+  var appOpen = false;       // the app itself is on screen — not boot, not the sign-in screen
+  var wizardOpen = false;    // the guided setup is standing in front of it
 
   var App = {
     current: 'home',
@@ -40,8 +45,6 @@
       App.current = name;
       try { location.hash = name; } catch (e) {}
       App.render();
-      var main = document.querySelector('.main');
-      if (main) main.scrollTop = 0;
       window.scrollTo(0, 0);
     },
 
@@ -52,98 +55,123 @@
         var active = name === App.current;
         el.classList.toggle('is-active', active);
         if (active && Views[name]) {
-          try { Views[name](el); }
+          try { Views[name](el); UI.linkLabels(el); }
           catch (err) {
             console.error('[' + name + ']', err);
-            UI.clear(el).appendChild(h('.banner.is-bad', {
-              html: '<div><b>This tab failed to draw.</b><br>' + UI.esc(err.message) +
-                    '<br>Your data is safe — the error is in the page, not the file.</div>'
-            }));
+            UI.clear(el).appendChild(h('.banner.is-bad', [h('div', [
+              h('b', { text: 'This page could not be shown.' }),
+              ' Your data is safe. Reload the page, and if it keeps happening, export a backup from Profile.'
+            ])]));
           }
         }
       });
       document.querySelectorAll('.nav-item').forEach(function (b) {
-        b.classList.toggle('is-active', b.dataset.view === App.current);
+        var on = b.dataset.view === App.current;
+        b.classList.toggle('is-active', on);
+        if (on) {
+          b.setAttribute('aria-current', 'page');
+          // On a phone the nav is a strip that scrolls sideways; keep the
+          // current tab in view rather than somewhere off the edge.
+          var strip = b.parentNode;
+          if (strip && strip.scrollWidth > strip.clientWidth) {
+            strip.scrollLeft = b.offsetLeft - (strip.clientWidth - b.offsetWidth) / 2;
+          }
+        } else b.removeAttribute('aria-current');
       });
       var meta = VIEWS[App.current];
       document.getElementById('view-title').textContent = meta.title;
       document.getElementById('view-sub').textContent = meta.sub;
-      renderStorageChip();
+      document.title = meta.title + ' · BodyKaLogic';
+      renderSyncChip();
     }
   };
 
-  function renderStorageChip() {
-    var host = document.getElementById('storage-chip');
-    if (!host) return;
-    UI.clear(host);
+  /* ---------------------------------------------------------------- theme */
 
-    var sy = global.Sync ? global.Sync.status() : { enabled: false };
-    var store = global.Store.status();
-
-    // A failed local save outranks everything else on this chip. It used to be
-    // recorded and never shown, which meant a full or blocked localStorage lost
-    // changes in silence — the one failure that must never be quiet.
-    if (store.lastError) {
-      var safeInCloud = sy.signedIn && !sy.dirty;
-      var bad = h('span.chip.chip-bad', {
-        text: safeInCloud ? 'Not saved on this device' : 'NOT SAVING',
-        title: store.lastError
-      });
-      bad.style.cursor = 'pointer';
-      bad.addEventListener('click', function () { App.go('profile'); });
-      host.appendChild(bad);
-      host.appendChild(h('.hint', {
-        text: safeInCloud ? 'Your account still has it.' : 'Export a copy from Profile.'
-      }));
-      return;
+  /* The theme belongs to the device, not the account: a phone in a dark gym and
+   * a laptop by a window want different answers. index.html applies the stored
+   * choice before first paint; this keeps it and the toggle in step. */
+  function applyTheme(theme, remember) {
+    theme = theme === 'light' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = theme;
+    if (remember) { try { localStorage.setItem(THEME_KEY, theme); } catch (e) {} }
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', theme === 'light' ? '#f4f4f1' : '#0b0c0f');
+    var toggle = document.getElementById('theme-toggle');
+    if (toggle) {
+      var label = theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme';
+      UI.clear(toggle).appendChild(UI.icon(theme === 'light' ? 'moon' : 'sun'));
+      toggle.title = label;
+      toggle.setAttribute('aria-label', label);
     }
-    var map = {
-      'synced':     ['chip-good', 'Synced'],
-      'syncing':    ['chip-accent', 'Syncing…'],
-      'offline':    ['chip-warn', 'Offline — saved here'],
-      'error':      ['chip-bad', 'Sync problem'],
-      'signed-out': ['chip-warn', 'Not signed in'],
-      'off':        ['chip-warn', 'This device only']
-    };
-    var row = map[sy.state] || map.off;
-    var label = row[1];
-    if (sy.state === 'synced' && sy.email) label = 'Synced · ' + sy.email;
-    if (sy.dirty && sy.state !== 'syncing') label += ' (pending)';
-
-    var chip = h('span.chip.' + row[0], { text: label, title: sy.message || label });
-    chip.style.cursor = 'pointer';
-    chip.addEventListener('click', function () { App.go('profile'); });
-    host.appendChild(chip);
-    if (sy.message && sy.state === 'error') host.appendChild(h('.hint', { text: sy.message }));
   }
 
-  /* ============================== onboarding ============================ */
+  function storedTheme() {
+    try { return localStorage.getItem(THEME_KEY); } catch (e) { return null; }
+  }
+
+  /* --------------------------------------------------------- sync status */
+
+  function chipFor(sy, store) {
+    // A failed local save outranks everything else. It is the one failure that
+    // must never be quiet.
+    if (store.lastError) {
+      var safe = sy.signedIn && !sy.dirty;
+      return { cls: 'chip-bad', label: safe ? 'Not saved on this device' : 'Not saving',
+               hint: safe ? 'Your account still has it.' : 'Export a copy from Profile.',
+               title: store.lastError };
+    }
+    switch (sy.state) {
+      case 'synced':
+        return sy.dirty ? { cls: 'chip-accent', label: 'Saving…' }
+                        : { cls: 'chip-good', label: 'Synced', hint: sy.email };
+      case 'syncing':    return { cls: 'chip-accent', label: 'Syncing…' };
+      case 'offline':    return { cls: 'chip-warn', label: 'Offline', hint: 'Saved here. Syncs when you reconnect.' };
+      case 'error':      return { cls: 'chip-bad', label: 'Sync problem', hint: sy.message };
+      case 'signed-out': return { cls: 'chip-warn', label: 'Signed out' };
+      default:           return { cls: 'chip-warn', label: 'This device only' };
+    }
+  }
+
+  function renderSyncChip() {
+    var info = chipFor(Sync.status(), Store.status());
+    [['storage-chip', true], ['topbar-chip', false]].forEach(function (pair) {
+      var host = document.getElementById(pair[0]);
+      if (!host) return;
+      UI.clear(host);
+      host.appendChild(h('button.chip.' + info.cls, {
+        type: 'button', text: info.label,
+        title: info.title || info.hint || 'Account and sync',
+        onclick: function () { App.go('profile'); }
+      }));
+      if (pair[1] && info.hint) host.appendChild(h('.hint.chip-hint', { text: info.hint }));
+    });
+  }
+
+  /* ============================== guided setup ========================== */
 
   function runOnboarding() {
     var root = document.getElementById('onboard-root');
-    function abandon() {
+    function leave() {
+      wizardOpen = false;
       UI.clear(root);
       document.getElementById('app').hidden = false;
-      App.go('home');
     }
     var p = S.get().profile;
     var step = 0;
-    var answers = Object.assign({}, p);
+    var answers = Object.assign({}, p, { avoid: (p.avoid || []).slice() });
 
     var STEPS = [
       {
         title: 'Welcome to BodyKaLogic',
-        intro: 'Fitness backed by data, not guesswork. Track your training, your food and your body, and keep it in sync across your phone and laptop.',
+        intro: 'Fitness backed by data, not guesswork. A few questions, and your training plan, meal plan and daily targets are built for you.',
         fields: function () {
           return [
-            h('.field', [h('label', { text: 'What should I call you?' }),
-              h('input', { id: 'o-name', value: answers.name || '', placeholder: 'optional' })]),
-            h('.banner', { html: '<div>Nothing here is sent anywhere. The one thing that reaches the network is the ' +
-              'optional text-recognition engine, if you choose to import a plan from a photo — and even then the photo ' +
-              'is read on this machine.</div>' })
+            h('.field', [h('label', { text: 'What should we call you?' }),
+              h('input', { id: 'o-name', value: answers.name || '', placeholder: 'optional', autocomplete: 'given-name' })])
           ];
         },
-        collect: function () { answers.name = val('o-name'); return true; }
+        collect: function () { answers.name = val('o-name').trim(); return true; }
       },
       {
         title: 'The basics',
@@ -155,9 +183,9 @@
                 h('option', { value: 'male', selected: answers.sex === 'male', text: 'Male' }),
                 h('option', { value: 'female', selected: answers.sex === 'female', text: 'Female' })
               ])]),
-              h('div', [h('label', { text: 'Age' }), h('input', { id: 'o-age', type: 'number', min: 13, max: 100, value: answers.age || '' })]),
-              h('div', [h('label', { text: 'Height (cm)' }), h('input', { id: 'o-height', type: 'number', min: 100, max: 230, value: answers.heightCm || '' })]),
-              h('div', [h('label', { text: 'Weight (kg)' }), h('input', { id: 'o-weight', type: 'number', step: 0.1, min: 25, max: 300, value: answers.weightKg || '' })])
+              h('div', [h('label', { text: 'Age' }), h('input', { id: 'o-age', type: 'number', inputmode: 'numeric', min: 13, max: 100, value: answers.age || '' })]),
+              h('div', [h('label', { text: 'Height (cm)' }), h('input', { id: 'o-height', type: 'number', inputmode: 'decimal', min: 100, max: 230, value: answers.heightCm || '' })]),
+              h('div', [h('label', { text: 'Weight (kg)' }), h('input', { id: 'o-weight', type: 'number', inputmode: 'decimal', step: 0.1, min: 25, max: 300, value: answers.weightKg || '' })])
             ]),
             h('.hint', { text: 'Sex is used only by the Mifflin-St Jeor energy equation, which has different constants for male and female bodies.' })
           ];
@@ -167,10 +195,8 @@
           answers.age = Number(val('o-age'));
           answers.heightCm = Number(val('o-height'));
           answers.weightKg = Number(val('o-weight'));
-          if (!answers.age || !answers.heightCm || !answers.weightKg) {
-            UI.toast('Age, height and weight are all needed to work out your targets.', 'bad');
-            return false;
-          }
+          var problem = S.vitalsProblem(answers.age, answers.heightCm, answers.weightKg);
+          if (problem) { UI.toast(problem, 'bad'); return false; }
           return true;
         }
       },
@@ -183,7 +209,7 @@
                 return h('option', { value: g.id, selected: answers.goal === g.id, text: g.label });
               }))]),
             h('.field', [h('label', { text: 'Goal weight (kg) — optional' }),
-              h('input', { id: 'o-target', type: 'number', step: 0.1, value: answers.targetWeightKg || '' })]),
+              h('input', { id: 'o-target', type: 'number', inputmode: 'decimal', step: 0.1, min: 25, max: 300, value: answers.targetWeightKg || '' })]),
             h('.field', [h('label', { text: 'How much training have you done?' }),
               h('select', { id: 'o-exp' }, global.PlanGen.EXPERIENCE.map(function (g) {
                 return h('option', { value: g.id, selected: answers.experience === g.id, text: g.label });
@@ -209,15 +235,14 @@
         fields: function () {
           var EXD = global.ExerciseData;
           return [
-            h('.field', [h('label', { text: 'Gym or home?' }),
+            h('.field', [h('.field-title', { text: 'Gym or home?' }),
               h('.check-grid', Object.keys(EXD.EQUIPMENT_PROFILES).map(function (id) {
                 var prof = EXD.EQUIPMENT_PROFILES[id];
                 var on = answers.equipment === id;
                 var pill = h('label.check-pill' + (on ? '.is-on' : ''), { 'data-eq': id }, [
                   h('input', { type: 'radio', name: 'eq', value: id, checked: on }),
                   h('span', { text: prof.label }),
-                  h('small', { style: { color: 'var(--ink-muted)' },
-                    text: EXD.pool(id, []).length + ' movements' })
+                  h('small', { text: EXD.pool(id, []).length + ' movements' })
                 ]);
                 pill.addEventListener('click', function () {
                   answers.equipment = id;
@@ -232,10 +257,11 @@
                 return h('option', { value: d, selected: Number(answers.daysPerWeek) === d,
                                      text: d + ' days' + (d <= 3 ? ' — full body' : d === 4 ? ' — upper / lower' : ' — push / pull / legs') });
               }))]),
-            h('.field', [h('label', { text: 'Anything to go easy on?' }),
-              h('.check-grid', global.ExerciseData.AVOID_OPTIONS.map(function (o) {
-                var box = h('input', { type: 'checkbox', value: o.id });
-                var pill = h('label.check-pill', [box, h('span', { text: o.label })]);
+            h('.field', [h('.field-title', { text: 'Anything to go easy on?' }),
+              h('.check-grid', EXD.AVOID_OPTIONS.map(function (o) {
+                var on = answers.avoid.indexOf(o.id) !== -1;
+                var box = h('input', { type: 'checkbox', value: o.id, checked: on });
+                var pill = h('label.check-pill' + (on ? '.is-on' : ''), [box, h('span', { text: o.label })]);
                 box.addEventListener('change', function () { pill.classList.toggle('is-on', box.checked); });
                 return pill;
               }))]),
@@ -244,7 +270,8 @@
         },
         collect: function () {
           answers.daysPerWeek = Number(val('o-days'));
-          answers.avoid = Array.prototype.slice.call(root.querySelectorAll('.check-pill.is-on input[type=checkbox]'))
+          answers.avoid = Array.prototype.slice.call(root.querySelectorAll('.check-pill input[type=checkbox]'))
+            .filter(function (b) { return b.checked; })
             .map(function (b) { return b.value; });
           return true;
         }
@@ -270,30 +297,6 @@
           answers.cuisine = val('o-cuisine');
           return true;
         }
-      },
-      {
-        title: 'One last thing',
-        intro: 'Your data is saved on this device as you go. Create an account and it ' +
-               'follows you to your phone as well — same email on both, and both show the ' +
-               'same thing. You can do that now or later from Profile.',
-        fields: function () {
-          var sy = global.Sync.status();
-          if (sy.signedIn) {
-            return [h('.banner', { html: '<div><b>Already signed in as ' + UI.esc(sy.email) +
-              '.</b> Your plan and logs will sync from here on.</div>' })];
-          }
-          return [
-            h('.banner', { html:
-              '<div><b>Without an account everything still works.</b> It just stays on this ' +
-              'device — so a lost phone, or a cleared browser, takes it with it.</div>' }),
-            h('button.btn', { text: 'Set up an account', onclick: function () {
-              finish(); App.go('profile');
-            } }),
-            h('.hint', { style: { marginTop: '12px' },
-              text: 'Or carry on — Profile has it whenever you want it.' })
-          ];
-        },
-        collect: function () { return true; }
       }
     ];
 
@@ -305,60 +308,49 @@
     function draw() {
       UI.clear(root);
       var s = STEPS[step];
+      var last = step === STEPS.length - 1;
       var card = h('.card', [
-        h('.step-dots', STEPS.map(function (_, i) {
-          return h('.step-dot' + (i <= step ? '.is-done' : ''));
-        })),
+        h('.step-dots', { role: 'img', 'aria-label': 'Step ' + (step + 1) + ' of ' + STEPS.length },
+          STEPS.map(function (_, i) { return h('.step-dot' + (i <= step ? '.is-done' : '')); })),
         h('h2', { text: s.title }),
         s.intro ? h('p', { style: { marginTop: '8px' }, text: s.intro }) : null,
         h('div', { style: { marginTop: '16px' } }, s.fields()),
         h('.card-head', { style: { marginTop: '22px', marginBottom: 0 } }, [
-          step > 0 ? h('button.btn', { text: '‹ Back', onclick: function () { step--; draw(); } })
-                   : h('button.btn.btn-ghost', { text: '‹ Back to Home', onclick: abandon }),
+          step > 0 ? h('button.btn', { type: 'button', text: 'Back', onclick: function () { step--; draw(); } })
+                   : h('button.btn.btn-ghost', { type: 'button', text: 'Not now', onclick: function () { leave(); App.go('home'); } }),
           h('.spacer'),
           h('button.btn.btn-primary', {
-            text: step === STEPS.length - 1 ? 'Build my plans' : 'Continue ›',
+            type: 'button',
+            text: last ? 'Build my plans' : 'Continue',
             onclick: function () {
               if (s.collect() === false) return;
-              if (step === STEPS.length - 1) return finish();
+              if (last) return finish();
               step++; draw();
             }
           })
         ])
       ]);
       root.appendChild(h('.onboard', [card]));
+      UI.linkLabels(root);
+      window.scrollTo(0, 0);
     }
 
     function finish() {
-      var st = S.get();
-      Object.assign(st.profile, answers);
-      st.settings.onboarded = true;
-      // The sign-up weight is also the first weigh-in, so the trend starts today
-      // rather than at the first time they remember to record one.
-      st.body[UI.todayKey()] = { weightKg: answers.weightKg, notes: 'starting weight' };
-      st.plan = global.PlanGen.generate(st.profile);
-      st.diet = global.DietGen.generate(st.profile, {
-        dietPref: st.profile.dietPref, cuisine: st.profile.cuisine, dislikes: []
-      });
-      S.save();
-      UI.clear(root);
-      document.getElementById('app').hidden = false;
+      Views.completeSetup(answers);
+      leave();
       App.go('home');
       UI.toast('Your plan and meals are ready.', 'good');
     }
 
+    wizardOpen = true;
     document.getElementById('app').hidden = true;
     draw();
   }
 
-  /* Decide what to open with when there is a local copy and a cloud copy.
-   *
-   * Clocks on two devices do not agree, so "newest wins" silently is a good way
-   * to lose a session. When both sides have real content and they differ, ask —
-   * it happens rarely enough to be worth one question, and the wrong answer here
-   * costs a workout. */
+  /* ============================ which copy opens ======================== */
+
   function summarise(d) {
-    if (!d) return 'empty';
+    if (!d) return 'nothing';
     var bits = [];
     var w = Object.keys(d.workouts || {}).length;
     var b = Object.keys(d.body || {}).length;
@@ -366,145 +358,199 @@
     if (w) bits.push(w + ' session' + (w > 1 ? 's' : ''));
     if (b) bits.push(b + ' weigh-in' + (b > 1 ? 's' : ''));
     if (n) bits.push(n + ' day' + (n > 1 ? 's' : '') + ' of food');
-    return bits.length ? bits.join(', ') : 'profile only';
+    return bits.length ? bits.join(', ') : 'your profile and plans';
   }
 
-  function hasContent(d) {
-    if (!d) return false;
-    return !!(d.settings && d.settings.onboarded) ||
-           Object.keys(d.workouts || {}).length > 0 ||
-           Object.keys(d.body || {}).length > 0;
+  function when(stamp) {
+    var d = new Date(stamp);
+    return isNaN(d.getTime()) ? 'at an unknown time' : d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
   }
 
+  /* Resolves { data, remote?, push? }: what to open, the account's copy if that
+   * is what was chosen, and whether this device's copy now needs sending. */
   function reconcile(localRes, remote) {
-    var localData = localRes && localRes.data;
-    if (!remote || !remote.data) return Promise.resolve(localRes);
-    if (!hasContent(localData)) {
-      return Promise.resolve({ data: remote.data, source: 'cloud' });
-    }
-    if (!hasContent(remote.data)) return Promise.resolve(localRes);
+    var local = localRes && localRes.data;
+    var sy = Sync.status();
 
-    var localStamp = Number(localData.updatedAt) || 0;
-    var remoteStamp = Date.parse(remote.updatedAt) || 0;
-    if (JSON.stringify(localData) === JSON.stringify(remote.data)) {
-      return Promise.resolve({ data: remote.data, source: 'cloud' });
+    if (!remote) {
+      // Either a brand-new account with no row yet, or the account could not be
+      // reached. Only in the first case is there somewhere to send this to.
+      var reachable = sy.signedIn && sy.state === 'synced';
+      return Promise.resolve({ data: local, push: reachable && S.hasContent(local) });
     }
 
+    var verdict = Sync.decide(local, remote, S.hasContent);
+    if (verdict === 'cloud') return Promise.resolve({ data: remote.data, remote: remote });
+    if (verdict === 'local') return Promise.resolve({ data: local, push: true });
+
+    // Both sides changed since they last agreed. Clocks on two devices do not
+    // agree either, so "newest wins" would be a guess — and a wrong guess here
+    // costs someone a workout. This is the one case worth a question.
     return UI.confirm({
-      title: 'Two copies of your data',
+      title: 'Which version do you want to keep?',
       message:
-        'This device has ' + summarise(localData) + ', last changed ' +
-        new Date(localStamp).toLocaleString() + '. Your account has ' +
-        summarise(remote.data) + ', last changed ' +
-        new Date(remoteStamp).toLocaleString() + '. Which should win? ' +
-        'The other is overwritten, so export a backup first if you are unsure.',
-      confirmLabel: 'Use the cloud copy',
-      cancelLabel: 'Keep this device'
-    }).then(function (useCloud) {
-      if (useCloud) return { data: remote.data, source: 'cloud' };
-      // Keeping local means the cloud is now stale; push as soon as we are up.
-      setTimeout(function () { global.Sync.push(S.get()); }, 1200);
-      return localRes;
+        'This device has changes that never reached your account (' + summarise(local) +
+        ', last changed ' + when(Number(local.updatedAt)) + '). Your account was also changed ' +
+        'from another device (' + summarise(remote.data) + ', last changed ' + when(remote.updatedAt) +
+        '). Keeping one replaces the other.',
+      confirmLabel: 'Use my account’s version',
+      cancelLabel: 'Keep this device’s'
+    }).then(function (useAccount) {
+      return useAccount ? { data: remote.data, remote: remote } : { data: local, push: true };
     });
   }
 
-  /* The signed-out screen. It borrows the onboarding overlay's container, so it
-   * is centred and the app chrome behind it stays hidden. */
-  function showGate() {
+  /* ============================= signed-out screen ====================== */
+
+  function showGate(opts) {
+    opts = opts || {};
+    appOpen = false;
+    wizardOpen = false;
+    UI.closeModals();
     var root = document.getElementById('onboard-root');
     UI.clear(root);
-    var mark = document.querySelector('.brand-logo');
-    root.appendChild(h('.onboard', [
-      h('.gate-brand', [h('img', {
-        src: mark ? mark.getAttribute('src') : '',
-        alt: 'BodyKaLogic — train smart, grow strong'
-      })]),
-      global.Views.signInGate()
-    ]));
+    var mark = document.querySelector('.sidebar .brand-logo');
+    var message = Sync.status().message;
+    root.appendChild(Views.authScreen({
+      logo: mark ? mark.getAttribute('src') : null,
+      mode: opts.mode,
+      notice: opts.notice || (message ? { kind: 'warn', text: message } : null)
+    }));
+    document.getElementById('boot').hidden = true;
     document.getElementById('app').hidden = true;
+    document.title = 'Sign in · BodyKaLogic';
   }
 
   /* ================================= boot =============================== */
 
+  /* Pick up what another device did while this tab sat in the background. */
+  function checkAccount() {
+    if (!appOpen) return;
+    Sync.refresh().then(function (remote) {
+      if (!remote || !appOpen) return;
+      // A dialog or the setup wizard is holding references into the current
+      // state; swapping it out underneath them would lose what they save.
+      if (wizardOpen || document.querySelector('.modal-backdrop') || Sync.status().dirty) return;
+      if (!Sync.same(S.get(), remote.data)) {
+        S.set(S.normalise(remote.data));
+        Store.save(S.get());
+        App.render();
+        UI.toast('Updated with changes from another device.');
+      }
+      Sync.adopt(remote);
+    });
+  }
+
   function start() {
     document.querySelectorAll('.nav-item').forEach(function (b) {
+      var meta = VIEWS[b.dataset.view];
+      var slot = b.querySelector('.nav-icon');
+      if (meta && slot) UI.clear(slot).appendChild(UI.icon(meta.icon));
       b.addEventListener('click', function () { App.go(b.dataset.view); });
     });
 
-    var toggle = document.getElementById('theme-toggle');
-    toggle.addEventListener('click', function () {
-      var next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
-      document.documentElement.dataset.theme = next;
-      var st = S.get();
-      if (st) { st.settings.theme = next; S.save(); }
-      App.render();
+    applyTheme(document.documentElement.dataset.theme, false);
+    document.getElementById('theme-toggle').addEventListener('click', function () {
+      applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light', true);
     });
 
     window.addEventListener('hashchange', function () {
       var name = location.hash.replace('#', '');
-      if (VIEWS[name] && name !== App.current) App.go(name);
+      if (appOpen && VIEWS[name] && name !== App.current) App.go(name);
     });
 
     var storageWasBroken = false;
-    global.Store.onChange(function (st) {
-      renderStorageChip();
+    Store.onChange(function (st) {
+      renderSyncChip();
       var broken = !!st.lastError;
       if (broken === storageWasBroken) return;   // nothing changed; leave the DOM alone
       storageWasBroken = broken;
 
-      if (broken) {
-        var sy = global.Sync.status();
-        UI.toast(st.lastError + (sy.signedIn
+      if (broken && appOpen) {
+        UI.toast(st.lastError + (Sync.status().signedIn
           ? ' It is still going to your account.'
-          : ' Sign in or export a copy before you lose it.'), 'bad');
+          : ' Export a copy from Profile before you lose it.'), 'bad');
       }
       // The Backup card reads this at render time, so the tab has to be redrawn
       // for the warning to appear — but only on the transition, or a redraw on
       // every save would pull focus out from under anyone typing.
-      if (App.current === 'profile') App.render();
+      if (appOpen && App.current === 'profile') App.render();
     });
-    global.Sync.onChange(function () { renderStorageChip(); });
 
-    global.Store.boot().then(function (localRes) {
-      // Sync.init() returns the cloud copy when signed in, null otherwise.
-      return global.Sync.init().then(function (remote) {
-        return reconcile(localRes, remote);
-      }).catch(function () {
-        return localRes;   // cloud unreachable is not a reason to fail to start
-      });
+    Sync.onChange(function (sy) {
+      renderSyncChip();
+      // A session that ends while the app is open — the refresh token was
+      // revoked, or it expired — closes the app too. Carrying on would save
+      // everything to this device alone, which is the split history the
+      // account exists to prevent.
+      if (appOpen && sy.enabled && !sy.signedIn) showGate();
+    });
+
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') checkAccount();
+      else Sync.flush({ keepalive: true });
+    });
+    window.addEventListener('focus', checkAccount);
+    window.addEventListener('pagehide', function () { Sync.flush({ keepalive: true }); });
+
+    var arrival = null;   // set when this visit came from a link in an email
+    var localRes = null;
+
+    (Sync.status().enabled ? Sync.consumeRedirect() : Promise.resolve(null)).then(function (a) {
+      arrival = a;
+      return Store.boot();
     }).then(function (res) {
+      localRes = res;
+      return Sync.init();
+    }).then(function (remote) {
+      // The local copy belongs to whoever last used this browser. Someone else
+      // signing in must neither see it nor have it pushed into their account.
+      if (Sync.localIsForeign()) {
+        Store.wipe();
+        Sync.forgetLocal();
+        localRes = { data: null, source: 'none' };
+      }
+      return reconcile(localRes, remote);
+    }).then(function (res) {
+      S.set(S.normalise(res.data));
+
+      // A theme saved with the account by an older build is honoured once, for
+      // a device that has not chosen its own.
+      var legacy = S.get().settings.theme;
+      if (!storedTheme() && (legacy === 'light' || legacy === 'dark')) applyTheme(legacy, true);
+
+      var sy = Sync.status();
+      if (sy.enabled && !sy.signedIn) {
+        showGate(arrival && arrival.error ? { notice: { kind: 'bad', text: arrival.error } } : null);
+        return;
+      }
+
+      if (res.remote) {
+        Store.save(S.get());
+        Sync.adopt(res.remote);
+      } else if (sy.signedIn) {
+        Sync.claimLocal();
+        if (res.push) { Sync.markDirty(); Sync.push(); }
+      }
+
+      if (arrival && arrival.type === 'recovery') { showGate({ mode: 'newpass' }); return; }
+
       document.getElementById('boot').hidden = true;
-      var data = res.data;
-
-      // A first-time visitor lands on Home like everyone else. The questionnaire
-      // used to stand in front of the app, which meant the first thing anyone saw
-      // was a form and none of the dashboard was reachable until it was finished.
-      // Setting up is now a card on Home, and the guided version is opt-in.
-      S.set(S.normalise(data));
-      var st = S.get();
-      if (st.settings.theme) document.documentElement.dataset.theme = st.settings.theme;
-
-      // Signed out, the sign-in screen is not a card on Home — it is the whole
-      // app. Nothing is readable or editable until there is an account to put it
-      // in, so there is only ever one copy of a history and two devices cannot
-      // drift apart. Where sync is not configured at all there is no account to
-      // demand, so the app opens as it always did.
-      var sy = global.Sync.status();
-      if (sy.enabled && !sy.signedIn) { showGate(); return; }
-
       document.getElementById('app').hidden = false;
+      appOpen = true;
       var hash = location.hash.replace('#', '');
       App.go(VIEWS[hash] ? hash : 'home');
 
-      if (res.source === 'cloud') {
-        UI.toast('Loaded your data from your account.');
-      } else if (global.Store.status().lastError) {
-        UI.toast(global.Store.status().lastError, 'bad');
-      }
+      if (arrival && arrival.type === 'signup') UI.toast('Email confirmed. Welcome to BodyKaLogic.', 'good');
+      else if (Store.status().lastError) UI.toast(Store.status().lastError, 'bad');
     }).catch(function (err) {
       console.error(err);
-      document.getElementById('boot').innerHTML =
-        '<h3>Could not start</h3><p>' + UI.esc(err.message) + '</p>';
+      var boot = document.getElementById('boot');
+      boot.hidden = false;
+      UI.clear(boot);
+      boot.appendChild(h('h3', { text: 'BodyKaLogic could not start' }));
+      boot.appendChild(h('p', { text: 'Reload the page to try again.' }));
+      boot.appendChild(h('button.btn', { type: 'button', text: 'Reload', onclick: function () { location.reload(); } }));
     });
   }
 

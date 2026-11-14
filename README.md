@@ -6,9 +6,10 @@ A single-page, dependency-free web app that tracks your training, your food and 
 body composition. It works your numbers out from your body and your goal, shows how it
 got there, and tracks whether they are actually working.
 
-No server. No account. No tracking. The only thing that ever touches the network is the
-text-recognition engine, downloaded once from a CDN if you choose to import a training
-plan from a photo — and even then the image is read on your own machine.
+Sign in with an email and password and your plan, logs and records follow you to every
+device. It works offline too: changes are saved on the device and sync when you reconnect.
+No tracking. Photos you import are read on your own machine; the only other thing fetched
+from a CDN is the text-recognition engine, once, if you import a plan from a photo.
 
 ## The logo
 
@@ -37,18 +38,14 @@ Three layers, in order of authority:
 
 | Layer | Role |
 |---|---|
-| **Your Supabase project** | The source of truth when you are signed in. One row per user, holding the whole state as JSON, protected by row-level security. |
-| **`localStorage`** | An offline cache, not a second database. Every change lands here first and unconditionally; the cloud push is debounced and best-effort. A failed push marks the state dirty and reconnecting flushes it — so a gym with no signal costs you nothing. |
+| **Your Supabase project** | The source of truth. One row per user, holding the whole state as JSON, protected by row-level security. |
+| **`localStorage`** | An offline cache, not a second database. Every change lands here first; the push to the account is debounced, retried with backoff, and flushed on reconnect and when the tab is hidden. |
+| **An exported file** | Optional copy you keep yourself, via **Export backup**. Worth taking now and again: a free Supabase project pauses after about a week of inactivity. |
 
-There is deliberately no "pick a folder on disk" option. A browser cannot open a
-path like `Desktop/BodyKaLogic/progress` from a string — the File System Access
-API requires the user to choose the folder by hand, in every browser they use, and
-re-grant it periodically. An earlier version did that, and once sync existed it was
-a third copy that could silently disagree with the other two. Export covers the
-"a file I own" case without any of it.
-| **An exported file** | Optional third copy you keep yourself, via **Export JSON**. Worth taking now and again: a free Supabase project pauses after about a week of inactivity. |
-
-Without an account the app still works end to end; it just stays on one device.
+The app requires an account when sync is configured. Which copy opens at boot needs no
+question in the normal cases: if this device has nothing unsent, the account's copy wins;
+if the account has not moved since the device last agreed with it, the device's copy wins.
+Only when both changed is the user asked.
 
 ## Deploying a change
 
@@ -72,6 +69,8 @@ may still be served the previous build — all of it, consistently. Hard-refresh
    It creates one table and the row-level-security policies.
 2. Open **Project Settings → API** and copy the **anon / publishable** key.
 3. Paste it into `src/config.js` as `anonKey`.
+4. For password-reset links to come back to the app, add its URL under
+   **Authentication → URL Configuration → Redirect URLs**.
 
 The anon key is public by design — it ships inside every Supabase browser app and
 is safe to commit **because** row-level security is on. It identifies the project,
@@ -79,8 +78,9 @@ not the person; every query is still checked against the signed-in user. The
 `service_role` key is the opposite: it bypasses those policies, so it must never
 appear in this repo or in any browser.
 
-By default Supabase emails a confirmation link on sign-up. To skip that while
-testing, turn off **Authentication → Sign In / Providers → Confirm email**.
+By default Supabase emails a confirmation link on sign-up; the sign-in screen handles
+that case. To skip it while testing, turn off **Authentication → Sign In / Providers →
+Confirm email**. Passwords must be at least 8 characters.
 
 ## Tabs
 
@@ -101,12 +101,12 @@ testing, turn off **Authentication → Sign In / Providers → Confirm email**.
 - **Body** — weight, body fat, and tape measurements, with BMI computed for you.
 - **Progress** — weekly weight and BMI trends, training volume, calories against
   target, per-exercise strength curves and a 12-week consistency heatmap.
-- **Profile & data** — your measurements, primary goal, training setup and food
+- **Profile** — account (sync, change password, sign out), your measurements, primary goal, training setup and food
   preferences, plus an **Energy** panel that shows how your targets are reached
   (BMR → activity → goal) and lets you overrule it: if you have tracked your own
   intake and know your maintenance is 2100 kcal, put that in and the equation steps
-  aside. Also a free-text field for injuries or limitations, and folder connection,
-  export, import and reset.
+  aside. Also a free-text field for injuries or limitations, backup export and
+  restore, and deleting your data.
 
 ## The week
 
@@ -121,11 +121,11 @@ the next one in the list, whenever you get to it.
 
 ## Setting up
 
-There is no sign-up wall and no wizard standing in front of the app. Home asks for
+After signing in there is no wizard standing in front of the app. Home asks for
 nine things on a single card — sex, age, height, weight, goal, experience, days a week,
 where you train, and what you eat — and builds your plan and week of meals from them.
 It takes about twenty seconds, and everything stays editable afterwards in
-**Profile & data**. A guided, step-by-step version is there from the same card for
+**Profile**. A guided, step-by-step version is there from the same card for
 anyone who prefers it.
 
 ## Importing an existing plan
@@ -221,6 +221,7 @@ assets/src/make-icons.py      rebuilds both from badge-master.png. Each name car
                        no cache can hold the old one.
 assets/wordmark-*.png  the full badge, light ink and dark ink
 src/store.js           local cache: localStorage, export and import
+src/auth.js            the signed-out screen: sign in, create account, reset password
 src/sync.js            accounts and cross-device sync over Supabase's REST API
 src/config.js          project URL and publishable key
 src/plan.js            workout plan generation and swapping

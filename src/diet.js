@@ -421,21 +421,15 @@
 
   global.DietGen = {
     ACTIVITY: ACTIVITY,
-    GOAL_ADJ: GOAL_ADJ,
-    SLOT_SHARE: SLOT_SHARE,
-    bmr: bmr,
     targets: targets,
     bmi: bmi,
     bmiBand: bmiBand,
-    itemMacros: itemMacros,
     sumMacros: sumMacros,
     roundMacros: roundMacros,
     roundQty: roundQty,
-    buildMeal: buildMeal,
     generate: generate,
     alternativesForMeal: alternativesForMeal,
     applyMealSwap: applyMealSwap,
-    recalcMeal: recalcMeal,
     recalcDay: recalcDay
   };
 

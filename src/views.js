@@ -8,15 +8,9 @@
   var S = global.State, C = global.Charts;
   var PG = global.PlanGen, DG = global.DietGen;
   var EXD = global.ExerciseData, FD = global.FoodData;
-  var MP = global.MealPhoto, PP = global.PlanParse;
 
   var Views = {};
-  /* Re-render the active tab. This defaulted to a no-op with a setRedraw() hook
-   * that nothing ever called, so every redraw() in this file — the swap, the
-   * regenerate, the whole of Home — silently did nothing and the page only
-   * updated when something else happened to repaint it. */
   var redraw = function () { global.App.render(); };
-  Views.setRedraw = function (fn) { redraw = fn; };
 
   /* ---------------------------------------------------------- small pieces */
 
@@ -45,7 +39,11 @@
       host
     ]);
     // Build after insertion so getBoundingClientRect inside the chart is real.
-    setTimeout(function () { build(host); }, 0);
+    setTimeout(function () {
+      build(host);
+      var svg = host.querySelector('svg');
+      if (svg) svg.setAttribute('aria-label', title + (sub ? ' — ' + sub : ''));
+    }, 0);
     return card;
   }
 
@@ -53,16 +51,16 @@
     return h('.card', [h('.empty-state', [
       h('h3', { text: title }),
       h('p', { text: msg }),
-      btnLabel ? h('button.btn.btn-primary', { text: btnLabel, onclick: onClick }) : null
+      btnLabel ? h('button.btn.btn-primary', { type: 'button', text: btnLabel, onclick: onClick }) : null
     ])]);
   }
 
   /* ================================ HOME ================================ */
 
-  /* The entrance. It is never a form: the page opens on something you can read,
-   * and setting up is one card inside it rather than a wizard standing in front
-   * of it. Before there is a profile it leads with quick setup and shows the
-   * shape of the dashboard behind it; afterwards it IS the dashboard.
+  /* The first thing after signing in. It opens on something you can read:
+   * setting up is one card inside it rather than a wizard standing in front of
+   * it. Before there is a profile it leads with quick setup and shows the shape
+   * of the dashboard behind it; afterwards it IS the dashboard.
    */
   function profileReady(p) {
     return !!(p && p.age && p.heightCm && p.weightKg);
@@ -89,13 +87,13 @@
 
   function heroCard(ready) {
     var st = S.get(), p = st.profile;
-    // 2 a.m. is not morning to anyone awake at 2 a.m., so the small hours get
-    // their own greeting instead of falling into "before noon".
+    // 2 a.m. is not morning to anyone awake at 2 a.m., and "good night" is a
+    // goodbye, so the small hours stay with the evening.
     var hour = new Date().getHours();
     var greeting = hour >= 5 && hour < 12 ? 'Good morning'
                  : hour >= 12 && hour < 17 ? 'Good afternoon'
-                 : hour >= 17 && hour < 22 ? 'Good evening'
-                 : 'Good night';
+                 : 'Good evening';
+    var streak = S.streak();
     var goal = (PG.GOALS.filter(function (g) { return g.id === p.goal; })[0] || {}).label;
 
     return h('.card.hero', [
@@ -104,7 +102,7 @@
           h('.stat-label', { text: ready ? 'Overview' : 'Welcome' }),
           h('h2', { text: ready ? greeting + (p.name ? ', ' + p.name : '') : 'Welcome to BodyKaLogic' }),
           h('p', { style: { margin: '6px 0 0' }, text: ready
-            ? UI.prettyDate(UI.todayKey()) + ' · ' + S.streak() + ' day streak'
+            ? UI.prettyDate(UI.todayKey()) + (streak ? ' · ' + streak + '-day streak' : '')
             : 'Fitness backed by data, not guesswork. It works out your numbers from your body and your goal, shows how it got there, and tracks whether they are working.' })
         ]),
         h('.spacer'),
@@ -133,19 +131,25 @@
     var totals = S.nutritionTotals(today);
     var sessions = Object.keys(st.workouts).filter(function (k) { return st.workouts[k].completed; }).length;
 
-    var bodyKeys = Object.keys(st.body).sort();
+    // Change in weight: against the reading from about a month ago when there
+    // is one, otherwise against the first weigh-in on record.
+    var weighIns = S.weighInKeys();
     var monthAgo = UI.addDays(today, -30);
-    var past = bodyKeys.filter(function (k) { return k <= monthAgo; }).pop();
-    var delta = (past && w) ? Math.round((w - st.body[past].weightKg) * 10) / 10 : null;
-    var goalDown = st.profile.goal === 'fat_loss';
-    var deltaCls = delta == null || delta === 0 ? 'delta-flat'
-      : ((delta < 0) === goalDown ? 'delta-up' : 'delta-down');
+    var past = weighIns.filter(function (k) { return k <= monthAgo; }).pop();
+    var since = 'in 30 days';
+    if (!past && weighIns.length > 1) { past = weighIns[0]; since = 'since ' + UI.shortDate(past); }
+    var delta = (past && w) ? Math.round((w - Number(st.body[past].weightKg)) * 10) / 10 : null;
+    // Whether a change is good news depends on what the goal is. For goals that
+    // are not about the scale it is neither, and is shown without a verdict.
+    var want = st.profile.goal === 'fat_loss' ? -1
+             : (st.profile.goal === 'muscle' || st.profile.goal === 'strength') ? 1 : 0;
+    var deltaCls = !delta || !want ? 'delta-flat' : ((delta > 0) === (want > 0) ? 'delta-up' : 'delta-down');
 
     return h('.grid.grid-4', { style: { marginTop: '16px' } }, [
       stat('Weight', w ? C.fmt(w, 1) : '—', w ? ' kg' : '',
         delta != null
-          ? [h('span.' + deltaCls, { text: (delta > 0 ? '▲ +' : delta < 0 ? '▼ ' : '◆ ') + C.fmt(delta, 1) + ' kg' }),
-             h('span', { text: 'in 30 days' })]
+          ? [h('span.' + deltaCls, { text: delta === 0 ? 'No change' : (delta > 0 ? '+' : '\u2212') + C.fmt(Math.abs(delta), 1) + ' kg' }),
+             h('span', { text: since })]
           : [h('span', { text: w ? 'first weigh-in recorded' : 'add your weight to begin' })],
         'var(--series-1)'),
       stat('BMI', bmi ? C.fmt(bmi, 1) : '—', '',
@@ -177,7 +181,7 @@
         h('h3', { text: 'Set yourself up' }),
         h('span.card-sub', { text: 'about twenty seconds — everything stays editable' }),
         h('.spacer'),
-        h('button.btn.btn-sm.btn-ghost', { text: 'Walk me through it instead', onclick: function () {
+        h('button.btn.btn-sm.btn-ghost', { type: 'button', text: 'Walk me through it instead', onclick: function () {
           global.App.guidedSetup();
         } })
       ]),
@@ -187,9 +191,9 @@
           h('option', { value: 'male', selected: p.sex === 'male', text: 'Male' }),
           h('option', { value: 'female', selected: p.sex === 'female', text: 'Female' })
         ])),
-        fld('age', 'Age', h('input', { type: 'number', min: 13, max: 100, value: p.age || '', placeholder: 'years' })),
-        fld('heightCm', 'Height', h('input', { type: 'number', min: 100, max: 230, value: p.heightCm || '', placeholder: 'cm' })),
-        fld('weightKg', 'Weight', h('input', { type: 'number', step: 0.1, min: 25, max: 300, value: p.weightKg || '', placeholder: 'kg' }))
+        fld('age', 'Age', h('input', { type: 'number', inputmode: 'numeric', min: 13, max: 100, value: p.age || '', placeholder: 'years' })),
+        fld('heightCm', 'Height', h('input', { type: 'number', inputmode: 'decimal', min: 100, max: 230, value: p.heightCm || '', placeholder: 'cm' })),
+        fld('weightKg', 'Weight', h('input', { type: 'number', inputmode: 'decimal', step: 0.1, min: 25, max: 300, value: p.weightKg || '', placeholder: 'kg' }))
       ]),
       h('.field-row', [
         fld('goal', 'Goal', h('select', PG.GOALS.map(function (g) {
@@ -218,40 +222,52 @@
         })))
       ]),
       h('.card-head', { style: { marginTop: '14px', marginBottom: 0 } }, [
-        h('button.btn.btn-primary', { text: 'Build my plan →', onclick: function () {
+        h('button.btn.btn-primary', { type: 'button', text: 'Build my plan', onclick: function () {
           var age = Number(f.age.value), hgt = Number(f.heightCm.value), wgt = Number(f.weightKg.value);
-          if (!age || !hgt || !wgt) {
-            UI.toast('Age, height and weight are needed to work out your targets.', 'bad');
-            (!age ? f.age : !hgt ? f.heightCm : f.weightKg).focus();
+          var problem = S.vitalsProblem(age, hgt, wgt);
+          if (problem) {
+            UI.toast(problem, 'bad');
+            (!age || age < 13 || age > 100 ? f.age
+              : !hgt || hgt < 100 || hgt > 230 ? f.heightCm : f.weightKg).focus();
             return;
           }
-          p.name = f.name.value.trim();
-          p.sex = f.sex.value;
-          p.age = age; p.heightCm = hgt; p.weightKg = wgt;
-          p.goal = f.goal.value;
-          p.experience = f.experience.value;
-          p.daysPerWeek = Number(f.daysPerWeek.value);
-          p.activity = f.activity.value;
-          p.equipment = f.equipment.value;
-          p.dietPref = f.dietPref.value;
-          p.cuisine = f.cuisine.value;
-          // The weight entered here is also the first weigh-in, so the trend
-          // starts today rather than whenever they next remember to record one.
-          if (!Object.keys(st.body).length) {
-            st.body[UI.todayKey()] = { weightKg: wgt, notes: 'starting weight' };
-          }
-          st.plan = PG.generate(p);
-          st.diet = DG.generate(p, { dietPref: p.dietPref, cuisine: p.cuisine, dislikes: [] });
-          st.settings.onboarded = true;
-          S.save(); redraw();
+          completeSetup({
+            name: f.name.value.trim(), sex: f.sex.value,
+            age: age, heightCm: hgt, weightKg: wgt,
+            goal: f.goal.value, experience: f.experience.value,
+            daysPerWeek: Number(f.daysPerWeek.value), activity: f.activity.value,
+            equipment: f.equipment.value, dietPref: f.dietPref.value, cuisine: f.cuisine.value
+          });
+          redraw();
           UI.toast('Your plan and meals are ready.', 'good');
         } }),
         h('.spacer'),
-        h('span.card-sub', { text: 'Nothing is sent anywhere. You choose where it is saved in Profile.' })
+        h('span.card-sub', { text: 'Saved to your account as you go.' })
       ])
     ]);
     return card;
   }
+
+  /* Apply the answers from either setup route and build what they ask for.
+   * A plan or a week of meals that is already there — imported before setting
+   * up, say — is left alone: answering questions about yourself should never
+   * throw away something you brought with you. */
+  function completeSetup(answers) {
+    var st = S.get();
+    Object.assign(st.profile, answers);
+    st.settings.onboarded = true;
+    // The weight given here is also the first weigh-in, so the trend starts
+    // today rather than whenever they next remember to record one.
+    if (!S.weighInKeys().length) S.logWeight(UI.todayKey(), st.profile.weightKg, 'starting weight');
+    if (!st.plan) st.plan = PG.generate(st.profile);
+    if (!st.diet) {
+      st.diet = DG.generate(st.profile, {
+        dietPref: st.profile.dietPref, cuisine: st.profile.cuisine, dislikes: st.profile.dislikes || []
+      });
+    }
+    S.save();
+  }
+  Views.completeSetup = completeSetup;
 
   function whatYouGetCard() {
     return h('.grid.grid-3', { style: { marginTop: '16px' } }, [
@@ -260,7 +276,7 @@
         h('p', { style: { fontSize: '.86rem', marginTop: '8px' },
           text: EXD.EXERCISES.length + ' movements, with a gym / home-dumbbells / bodyweight switch. ' +
                 'Every exercise has a swap list — 60 to 120 alternatives in a gym, 40+ on bodyweight alone.' }),
-        h('button.btn.btn-sm', { text: 'Import a plan I already have',
+        h('button.btn.btn-sm', { type: 'button', text: 'Import a plan I already have',
           onclick: function () { Views.openPlanImport(); } })
       ]),
       h('.card', [
@@ -272,14 +288,11 @@
           onclick: function () { Views.openDietImport(); } })
       ]),
       h('.card', [
-        h('h3', { text: 'Already on your phone' }),
-        // Anyone reading this is signed in — the app does not open otherwise —
-        // so this tells them what that already bought them, rather than selling
-        // them a step they have taken.
+        h('h3', { text: 'On every device' }),
         h('p', { style: { fontSize: '.86rem', marginTop: '8px' },
-          text: 'Open this site on any other device, sign in with the same email, and your ' +
-                'plan and history are there. It keeps working with no signal: changes are ' +
-                'saved on the device and go up when you reconnect.' }),
+          text: 'Sign in on your phone with the same email and your plan and history are ' +
+                'there. It keeps working with no signal: changes are saved on the device ' +
+                'and sync when you reconnect.' }),
         h('button.btn.btn-sm', { text: 'Account settings',
           onclick: function () { global.App.go('profile'); } })
       ])
@@ -314,11 +327,11 @@
         h('h3', { text: 'Body mass index' }),
         h('span.card-sub', { text: bmi ? band.label : 'add a weigh-in to see this' }),
         h('.spacer'),
-        h('button.btn.btn-sm', { text: '+ Weigh in', onclick: function () { global.App.go('body'); } })
+        UI.button('.btn-sm', 'plus', 'Weigh in', { onclick: function () { global.App.go('body'); } })
       ]),
       host,
       h('.hint', { style: { marginTop: '10px' }, text: healthyLow
-        ? 'At ' + st.profile.heightCm + ' cm, the healthy BMI range is about ' +
+        ? 'At ' + st.profile.heightCm + ' cm, a healthy BMI corresponds to about ' +
           C.fmt(healthyLow, 1) + '–' + C.fmt(healthyHigh, 1) + ' kg' +
           (w ? ' — you are at ' + C.fmt(w, 1) + ' kg.' : '.') +
           ' BMI is a rough screening measure: it does not know muscle from fat, so a heavily trained person reads high.'
@@ -487,9 +500,6 @@
 
     if (!st.plan) {
       root.appendChild(planSourceCard());
-      root.appendChild(emptyState('No workout plan yet',
-        'Build one from your answers, import the plan you already follow, or write it by hand.',
-        'Build me a plan', function () { regeneratePlan(); }));
       return;
     }
 
@@ -500,16 +510,18 @@
       h('.card-head', [
         h('h3', { text: 'Training setup' }),
         h('.spacer'),
-        h('span.card-sub', { text: plan.source === 'imported' ? 'imported plan' : 'generated · ' + plan.daysPerWeek + ' days a week' })
+        h('span.card-sub', { text: (plan.source === 'imported' ? 'Imported plan' : 'Built for you') + ' · ' +
+          plan.days.length + ' day' + (plan.days.length === 1 ? '' : 's') + ' a week' })
       ]),
       h('.field-row', [
         h('div', [
-          h('label', { text: 'Where are you training?' }),
+          h('.field-title', { text: 'Where are you training?' }),
           h('.seg-group', Object.keys(EXD.EQUIPMENT_PROFILES).map(function (id) {
             var p = EXD.EQUIPMENT_PROFILES[id];
             return h('button.seg-btn' + (plan.equipment === id ? '.is-active' : ''), {
-              text: p.label,
+              type: 'button', text: p.label, 'aria-pressed': plan.equipment === id ? 'true' : 'false',
               onclick: function () {
+                if (plan.equipment === id) return;
                 PG.reequip(plan, id, st.profile.avoid || []);
                 st.profile.equipment = id;
                 S.save(); redraw();
@@ -519,17 +531,17 @@
           }))
         ]),
         h('div', [
-          h('label', { text: 'Pool available here' }),
+          h('.field-title', { text: 'Movements available here' }),
           h('p', { style: { margin: 0, fontSize: '.84rem' },
             text: EXD.pool(plan.equipment, st.profile.avoid || []).length + ' of ' +
                   EXD.EXERCISES.length + ' movements' })
         ])
       ]),
       h('.card-head', { style: { marginTop: '14px', marginBottom: 0 } }, [
-        h('button.btn.btn-sm', { text: '↻ Regenerate', onclick: function () { regeneratePlan(); } }),
-        h('button.btn.btn-sm', { text: '⬆ Import a plan', onclick: function () { Views.openPlanImport(); } }),
-        h('button.btn.btn-sm', { text: '+ Add day', onclick: function () {
-          plan.days.push({ name: 'Day ' + (plan.days.length + 1), focus: '', slots: [], notes: '' });
+        UI.button('.btn-sm', 'refresh', 'Rebuild plan', { onclick: function () { regeneratePlan(); } }),
+        UI.button('.btn-sm', 'upload', 'Import a plan', { onclick: function () { Views.openPlanImport(); } }),
+        UI.button('.btn-sm', 'plus', 'Add day', { onclick: function () {
+          plan.days.push({ name: 'Day ' + (plan.days.length + 1), focus: '', slots: [], notes: '', weekday: null });
           S.save(); redraw();
         } })
       ])
@@ -538,12 +550,11 @@
     plan.days.forEach(function (day, di) {
       var card = h('.card', [
         h('.card-head', [
-          h('input', { value: day.name, style: { fontWeight: '650', maxWidth: '190px' },
-            onchange: function (e) { day.name = e.target.value; S.save(); } }),
-          h('input', { value: day.focus || '', placeholder: 'focus (optional)',
-            style: { maxWidth: '180px', fontSize: '.8rem' },
+          h('input.day-name', { value: day.name || '', 'aria-label': 'Day name',
+            onchange: function (e) { day.name = e.target.value.trim() || ('Day ' + (di + 1)); S.save(); redraw(); } }),
+          h('input.day-focus', { value: day.focus || '', placeholder: 'focus (optional)', 'aria-label': 'Focus',
             onchange: function (e) { day.focus = e.target.value; S.save(); } }),
-          h('select', { style: { maxWidth: '130px', fontSize: '.8rem' },
+          h('select.day-weekday', { 'aria-label': 'Day of the week',
             title: 'Which day of the week this session falls on',
             onchange: function (e) {
               day.weekday = e.target.value === '' ? null : Number(e.target.value);
@@ -554,9 +565,9 @@
                 return h('option', { value: d, selected: day.weekday === d, text: UI.DAY_NAMES[d] });
               }))),
           h('.spacer'),
-          h('span.card-sub', { text: day.slots.length + ' exercises' }),
-          h('button.btn.btn-sm.btn-danger', { text: 'Remove day', onclick: function () {
-            UI.confirm({ title: 'Remove ' + day.name + '?', message: 'This removes the day from your plan. Logged sessions are not affected.', danger: true, confirmLabel: 'Remove' })
+          h('span.card-sub', { text: day.slots.length + ' exercise' + (day.slots.length === 1 ? '' : 's') }),
+          UI.button('.btn-sm.btn-ghost.btn-danger', 'trash', null, { title: 'Remove this day', onclick: function () {
+            UI.confirm({ title: 'Remove ' + day.name + '?', message: 'This removes the day from your plan. Sessions you have already logged are not affected.', danger: true, confirmLabel: 'Remove day' })
               .then(function (ok) { if (ok) { plan.days.splice(di, 1); S.save(); redraw(); } });
           } })
         ])
@@ -567,7 +578,7 @@
       });
 
       card.appendChild(h('.card-head', { style: { marginTop: '10px', marginBottom: 0 } }, [
-        h('button.btn.btn-sm', { text: '+ Add exercise', onclick: function () {
+        UI.button('.btn-sm', 'plus', 'Add exercise', { onclick: function () {
           openSwapModal(plan, di, null, 'Add an exercise to ' + day.name);
         } })
       ]));
@@ -580,10 +591,8 @@
   function dayWhen(day) {
     return day.weekday == null ? 'any day' : UI.DAY_NAMES[day.weekday];
   }
-  Views.dayWhen = dayWhen;
 
   function exerciseRow(plan, day, di, slot, si) {
-    var st = S.get();
     var best = slot.exId ? S.bestMax(slot.exId) : null;
     return h('.ex-row', [
       h('.ex-main', [
@@ -591,28 +600,27 @@
         h('.ex-meta', { text: slot.sets + ' × ' + slot.reps +
           (slot.rest ? ' · ' + slot.rest + 's rest' : '') +
           (slot.weight ? ' · ' + slot.weight + (slot.weightUnit || 'kg') : '') +
-          (best ? ' · best ' + best.weight + 'kg × ' + best.reps : '') +
+          (best ? ' · best ' + best.weight + ' kg × ' + best.reps : '') +
           (slot.importedAs ? ' · imported as "' + slot.importedAs + '"' : '') })
       ]),
-      h('span.ex-pattern', { text: EXD.PATTERN_LABEL[slot.pattern] || slot.pattern }),
-      h('button.btn.btn-sm', {
-        text: '⇄ Swap',
-        title: 'Show alternatives for this slot',
+      slot.exId ? h('span.ex-pattern', { text: EXD.PATTERN_LABEL[slot.pattern] || slot.pattern }) : null,
+      UI.button('.btn-sm', 'swap', 'Swap', {
+        title: 'Show alternatives for this exercise',
         onclick: function () { openSwapModal(plan, di, si); }
       }),
-      h('button.btn.btn-sm.btn-ghost', { text: '✎', title: 'Edit sets and reps', onclick: function () {
+      UI.button('.btn-sm.btn-ghost', 'edit', null, { title: 'Edit sets and reps for ' + slot.name, onclick: function () {
         editSlot(plan, slot);
       } }),
-      h('button.btn.btn-sm.btn-ghost.btn-danger', { text: '✕', title: 'Remove', onclick: function () {
+      UI.button('.btn-sm.btn-ghost.btn-danger', 'x', null, { title: 'Remove ' + slot.name, onclick: function () {
         day.slots.splice(si, 1); S.save(); redraw();
       } })
     ]);
   }
 
   function editSlot(plan, slot) {
-    var sets = h('input', { type: 'number', value: slot.sets, min: 1, max: 12 });
-    var reps = h('input', { value: slot.reps });
-    var rest = h('input', { type: 'number', value: slot.rest || 90, min: 0, max: 600, step: 15 });
+    var sets = h('input', { type: 'number', inputmode: 'numeric', value: slot.sets, min: 1, max: 12 });
+    var reps = h('input', { value: slot.reps, placeholder: 'e.g. 8-12' });
+    var rest = h('input', { type: 'number', inputmode: 'numeric', value: slot.rest == null ? 90 : slot.rest, min: 0, max: 600, step: 15 });
     UI.modal({
       title: slot.name,
       body: h('.field-row', [
@@ -621,9 +629,9 @@
         h('div', [h('label', { text: 'Rest (seconds)' }), rest])
       ]),
       actions: [{ label: 'Cancel' }, { label: 'Save', kind: 'primary', onClick: function () {
-        slot.sets = Number(sets.value) || slot.sets;
-        slot.reps = reps.value || slot.reps;
-        slot.rest = Number(rest.value);
+        slot.sets = Math.min(12, Math.max(1, Math.round(Number(sets.value)) || slot.sets));
+        slot.reps = reps.value.trim() || slot.reps;
+        slot.rest = Math.min(600, Math.max(0, Number(rest.value) || 0));
         S.save(); redraw();
       } }]
     });
@@ -634,7 +642,7 @@
     var st = S.get();
     var day = plan.days[dayIdx];
     var avoid = st.profile.avoid || [];
-    var alts, current = null;
+    var alts, current = null, known = true;
 
     if (slotIdx == null) {
       alts = EXD.pool(plan.equipment, avoid).map(function (e) {
@@ -642,10 +650,12 @@
       });
     } else {
       current = day.slots[slotIdx];
+      known = !!(EXD.byId(current.exId) || EXD.byName(current.name));
       alts = PG.alternativesForSlot(plan, dayIdx, slotIdx, avoid);
     }
 
-    var search = h('input', { placeholder: 'Filter ' + alts.length + ' movements…', autofocus: true });
+    var search = h('input', { type: 'search', placeholder: 'Search ' + alts.length + ' movements…',
+                              'aria-label': 'Search movements' });
     var listHost = h('div');
 
     function render() {
@@ -661,7 +671,7 @@
         return;
       }
       var tiers = [
-        ['direct', slotIdx == null ? 'All movements you can do here' : 'Same movement pattern'],
+        ['direct', (slotIdx == null || !known) ? 'All movements you can do here' : 'Same movement pattern'],
         ['muscle', 'Same muscle, different pattern'],
         ['related', 'Related — same muscle group']
       ];
@@ -671,6 +681,7 @@
         listHost.appendChild(h('.swap-tier', { text: t[1] + ' · ' + group.length }));
         listHost.appendChild(h('.swap-list', group.map(function (alt) {
           return h('button.swap-item', {
+            type: 'button',
             onclick: function () {
               if (slotIdx == null) {
                 var rx = PG.GOAL_RX[plan.goal] || PG.GOAL_RX.muscle;
@@ -698,7 +709,9 @@
       body: [
         h('p', { text: slotIdx == null
           ? 'Pick anything your equipment allows.'
-          : alts.length + ' alternatives available with your current setup, closest first.' }),
+          : !known
+            ? 'This one is not in the library, so here is everything your setup allows.'
+            : alts.length + ' alternatives available with your current setup, closest first.' }),
         h('.field', [search]),
         listHost
       ]
@@ -711,43 +724,57 @@
       h('.card-head', [h('h3', { text: 'Where should your plan come from?' })]),
       h('.grid.grid-3', [
         h('.day-card', [
-          h('h4', { text: '📷 From a photo' }),
-          h('p', { style: { fontSize: '.82rem' }, text: 'Snap the sheet your trainer gave you. Text is read out of it in the browser and you correct it before it is saved.' }),
-          h('button.btn.btn-sm', { text: 'Import from photo', onclick: function () { Views.openPlanImport('photo'); } })
+          h('h4', [UI.icon('sparkle'), 'Build one for me']),
+          h('p', { text: 'Built from your goal, experience, days a week and the equipment you actually have.' }),
+          h('button.btn.btn-sm.btn-primary', { type: 'button', text: 'Build my plan', onclick: function () { regeneratePlan(); } })
         ]),
         h('.day-card', [
-          h('h4', { text: '📄 From a file' }),
-          h('p', { style: { fontSize: '.82rem' }, text: 'A BodyKaLogic export, or a plain .txt / .md / .csv roughly in the shape of a plan.' }),
-          h('button.btn.btn-sm', { text: 'Import from file', onclick: function () { Views.openPlanImport('file'); } })
+          h('h4', [UI.icon('camera'), 'From a photo']),
+          h('p', { text: 'Snap the sheet your trainer gave you. The text is read on this device and you correct it before it is saved.' }),
+          h('button.btn.btn-sm', { type: 'button', text: 'Import from photo', onclick: function () { Views.openPlanImport('photo'); } })
         ]),
         h('.day-card', [
-          h('h4', { text: '✨ Recommend one' }),
-          h('p', { style: { fontSize: '.82rem' }, text: 'Built from your goal, experience, days a week and the equipment you actually have.' }),
-          h('button.btn.btn-sm.btn-primary', { text: 'Build me a plan', onclick: function () { regeneratePlan(); } })
+          h('h4', [UI.icon('file'), 'From a file']),
+          h('p', { text: 'A BodyKaLogic export, or a plain .txt / .md / .csv roughly in the shape of a plan.' }),
+          h('button.btn.btn-sm', { type: 'button', text: 'Import from file', onclick: function () { Views.openPlanImport('file'); } })
         ])
       ])
     ]);
   }
 
-  function regeneratePlan() {
+  /* Build the plan from the profile. Replacing a plan that already exists
+   * throws away every swap and edit made to it, so that is asked first —
+   * `opts.sure` skips the question for a caller that has already asked. */
+  function regeneratePlan(opts) {
+    opts = opts || {};
     var st = S.get();
     var p = st.profile;
-    if (!p.age || !p.heightCm || !p.weightKg) {
-      UI.toast('Fill in your age, height and weight in Profile first.', 'bad');
-      global.App.go('profile');
-      return;
+    if (!profileReady(p)) {
+      UI.toast('Add your age, height and weight on Home first.', 'bad');
+      global.App.go('home');
+      return Promise.resolve(false);
     }
-    st.plan = PG.generate(p);
-    S.save(); redraw();
-    UI.toast('New ' + p.daysPerWeek + '-day plan built for ' +
-             EXD.EQUIPMENT_PROFILES[p.equipment].label.toLowerCase() + '.', 'good');
+    var ask = (st.plan && !opts.sure) ? UI.confirm({
+      title: 'Rebuild your workout plan?',
+      message: 'This replaces your current plan, including any swaps and edits you have made. Sessions you have already logged are not affected.',
+      confirmLabel: 'Rebuild plan'
+    }) : Promise.resolve(true);
+    return ask.then(function (ok) {
+      if (!ok) return false;
+      st.plan = PG.generate(p);
+      S.save(); redraw();
+      if (!opts.quiet) {
+        UI.toast('New ' + st.plan.daysPerWeek + '-day plan built for ' +
+                 EXD.EQUIPMENT_PROFILES[st.plan.equipment].label.toLowerCase() + '.', 'good');
+      }
+      return true;
+    });
   }
 
   Views.regeneratePlan = regeneratePlan;
-  Views.openSwapModal = openSwapModal;
 
   global.Views = Views;
   global.ViewsInternal = { stat: stat, macroPills: macroPills, chartCard: chartCard,
-                           emptyState: emptyState, carryForward: carryForward };
+                           emptyState: emptyState };
 
 }(window));
