@@ -156,12 +156,13 @@
     });
   }
 
-  function accountCard() {
+  function accountCard(opts) {
+    opts = opts || {};
     var sy = global.Sync.status();
     var card = h('.card', [
       h('.card-head', [
-        h('h3', { text: 'Account & sync' }),
-        h('span.card-sub', { text: 'so your phone and laptop show the same thing' })
+        h('h3', { text: opts.heading || 'Account & sync' }),
+        h('span.card-sub', { text: opts.sub || 'so your phone and laptop show the same thing' })
       ])
     ]);
 
@@ -274,8 +275,37 @@
     card.appendChild(h('.hint', { text:
       'Your password is sent to your own Supabase project and nowhere else. This app has ' +
       'no server of its own, and nothing about your training leaves your account.' }));
+    if (opts.dismissable) {
+      card.appendChild(h('button.btn.btn-sm.btn-ghost', { style: { marginTop: '10px' },
+        text: 'Not now — use this device only', onclick: function () {
+          try { sessionStorage.setItem(SKIP_KEY, '1'); } catch (e) {}
+          redraw();
+        } }));
+    }
     return card;
   }
+
+  /* The same form, as the card Home leads with.
+   *
+   * A new visitor should meet sign-in rather than go looking for it — it used to
+   * be buried below the fold of another tab, which is no way to discover the one
+   * feature that makes a second device work. It persuades rather than blocks:
+   * everything below it on Home works without an account, and "not now" puts it
+   * away for the session. Signed in, it is not built at all, and signing out
+   * stays in Profile where the rest of the account lives.
+   */
+  var SKIP_KEY = 'bkl.skipSignIn.v1';
+
+  Views.signInCard = function () {
+    var sy = global.Sync.status();
+    if (!sy.enabled || sy.signedIn) return null;
+    try { if (sessionStorage.getItem(SKIP_KEY)) return null; } catch (e) {}
+    return accountCard({
+      heading: 'Sign in to BodyKaLogic',
+      sub: 'one account, same numbers on your phone and your laptop',
+      dismissable: true
+    });
+  };
 
   /* ============================== PROGRESS ============================== */
 

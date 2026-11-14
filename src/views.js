@@ -73,6 +73,9 @@
     var st = S.get(), p = st.profile;
     var ready = profileReady(p);
 
+    var signIn = Views.signInCard && Views.signInCard();
+    if (signIn) root.appendChild(signIn);
+
     root.appendChild(heroCard(ready));
     root.appendChild(statRow(ready));
 
@@ -247,7 +250,7 @@
           UI.toast('Your plan and meals are ready.', 'good');
         } }),
         h('.spacer'),
-        h('span.card-sub', { text: 'Nothing is sent anywhere. You choose where it is saved in Profile & data.' })
+        h('span.card-sub', { text: 'Nothing is sent anywhere. You choose where it is saved in Profile.' })
       ])
     ]);
     return card;
@@ -318,7 +321,7 @@
           C.fmt(healthyLow, 1) + '–' + C.fmt(healthyHigh, 1) + ' kg' +
           (w ? ' — you are at ' + C.fmt(w, 1) + ' kg.' : '.') +
           ' BMI is a rough screening measure: it does not know muscle from fat, so a heavily trained person reads high.'
-        : 'Add your height in Profile & data to see your range.' }),
+        : 'Add your height in Profile to see your range.' }),
       h('.hint', { text: 'Daily targets from these numbers: ' + t.kcal + ' kcal, ' + t.protein +
                          ' g protein, ' + t.carbs + ' g carbs, ' + t.fat + ' g fat, ' +
                          (t.waterMl / 1000).toFixed(1) + ' L water.' })

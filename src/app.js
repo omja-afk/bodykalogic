@@ -26,7 +26,7 @@
     maxes:     { title: 'Strength maxes',  sub: 'max weight and max reps per exercise' },
     body:      { title: 'Body',            sub: 'weight, BMI and measurements' },
     progress:  { title: 'Progress',        sub: 'trends, volume and consistency' },
-    profile:   { title: 'Profile & data',  sub: 'your answers, and where they are stored' }
+    profile:   { title: 'Profile',  sub: 'your answers, your account, and where everything is stored' }
   };
 
   var App = {
@@ -93,7 +93,7 @@
       bad.addEventListener('click', function () { App.go('profile'); });
       host.appendChild(bad);
       host.appendChild(h('.hint', {
-        text: safeInCloud ? 'Your account still has it.' : 'Export a copy from Profile & data.'
+        text: safeInCloud ? 'Your account still has it.' : 'Export a copy from Profile.'
       }));
       return;
     }
@@ -275,7 +275,7 @@
         title: 'One last thing',
         intro: 'Your data is saved on this device as you go. Create an account and it ' +
                'follows you to your phone as well — same email on both, and both show the ' +
-               'same thing. You can do that now or later from Profile & data.',
+               'same thing. You can do that now or later from Profile.',
         fields: function () {
           var sy = global.Sync.status();
           if (sy.signedIn) {
@@ -290,7 +290,7 @@
               finish(); App.go('profile');
             } }),
             h('.hint', { style: { marginTop: '12px' },
-              text: 'Or carry on — Profile & data has it whenever you want it.' })
+              text: 'Or carry on — Profile has it whenever you want it.' })
           ];
         },
         collect: function () { return true; }
