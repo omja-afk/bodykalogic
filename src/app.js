@@ -74,6 +74,25 @@
     UI.clear(host);
 
     var sy = global.Sync ? global.Sync.status() : { enabled: false };
+    var store = global.Store.status();
+
+    // A failed local save outranks everything else on this chip. It used to be
+    // recorded and never shown, which meant a full or blocked localStorage lost
+    // changes in silence — the one failure that must never be quiet.
+    if (store.lastError) {
+      var safeInCloud = sy.signedIn && !sy.dirty;
+      var bad = h('span.chip.chip-bad', {
+        text: safeInCloud ? 'Not saved on this device' : 'NOT SAVING',
+        title: store.lastError
+      });
+      bad.style.cursor = 'pointer';
+      bad.addEventListener('click', function () { App.go('profile'); });
+      host.appendChild(bad);
+      host.appendChild(h('.hint', {
+        text: safeInCloud ? 'Your account still has it.' : 'Export a copy from Profile & data.'
+      }));
+      return;
+    }
     var map = {
       'synced':     ['chip-good', 'Synced'],
       'syncing':    ['chip-accent', 'Syncing…'],
@@ -406,7 +425,24 @@
       if (VIEWS[name] && name !== App.current) App.go(name);
     });
 
-    global.Store.onChange(function () { renderStorageChip(); });
+    var storageWasBroken = false;
+    global.Store.onChange(function (st) {
+      renderStorageChip();
+      var broken = !!st.lastError;
+      if (broken === storageWasBroken) return;   // nothing changed; leave the DOM alone
+      storageWasBroken = broken;
+
+      if (broken) {
+        var sy = global.Sync.status();
+        UI.toast(st.lastError + (sy.signedIn
+          ? ' It is still going to your account.'
+          : ' Sign in or export a copy before you lose it.'), 'bad');
+      }
+      // The Backup card reads this at render time, so the tab has to be redrawn
+      // for the warning to appear — but only on the transition, or a redraw on
+      // every save would pull focus out from under anyone typing.
+      if (App.current === 'profile') App.render();
+    });
     global.Sync.onChange(function () { renderStorageChip(); });
 
     global.Store.boot().then(function (localRes) {

@@ -21,6 +21,7 @@
   var listeners = [];
   var lastSaved = null;
   var lastError = null;
+  var failures = 0;        // how many writes have failed since the last success
 
   function emit() {
     var snap = Store.status();
@@ -48,21 +49,33 @@
       global.localStorage.setItem(LS_KEY, JSON.stringify(payload));
       lastSaved = Date.now();
       lastError = null;
+      failures = 0;
       return true;
     } catch (e) {
-      // Quota, or storage blocked in a private window. Worth surfacing, because
-      // without the cloud this is the only copy.
-      lastError = 'Could not save on this device: ' + e.message;
-      emit();
+      // Quota, or storage blocked in a private window. This is the write that
+      // everything else is built on, so a failure here has to be loud: if it is
+      // swallowed and the user is not signed in, the data has nowhere left to go.
+      lastError = describe(e);
+      failures++;
       return false;
     }
+  }
+
+  function describe(e) {
+    var quota = e && (e.name === 'QuotaExceededError' ||
+                      e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22);
+    if (quota) {
+      return 'This device\u2019s storage is full, so your last change was not saved here.';
+    }
+    return 'This device is not allowing saves (' + ((e && e.message) || 'unknown reason') +
+           '), so your last change was not saved here.';
   }
 
   var Store = {
     onChange: function (fn) { listeners.push(fn); },
 
     status: function () {
-      return { lastSaved: lastSaved, lastError: lastError };
+      return { lastSaved: lastSaved, lastError: lastError, failures: failures, ok: !lastError };
     },
 
     /* Resolves { data, source } — 'local' when something was found here,
@@ -77,7 +90,7 @@
      * fail or lag, because everything else is best-effort on top of it. */
     save: function (payload) {
       write(payload);
-      emit();
+      emit();          // after the write, so listeners see the outcome, not the old state
     },
 
     exportFile: function (payload, filename) {
