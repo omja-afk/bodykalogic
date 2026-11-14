@@ -1,10 +1,14 @@
 #!/bin/sh
 # Stamp every local script/stylesheet in index.html with ?v=<timestamp>.
 #
-# GitHub Pages serves assets with a long cache lifetime, so without this a
-# returning visitor keeps running the previous build until their browser decides
-# otherwise — which is how a freshly deployed key sat there unused.
-# Run this before committing a release.
+# GitHub Pages sends cache-control: max-age=600 on both the HTML and the assets,
+# and their ages drift apart (a page can be served fresh while its scripts are 39
+# seconds into their own window). Stamping ties each asset to the HTML that asked
+# for it, so a newly fetched page can never pair with a stale script.
+#
+# It does NOT shorten the 10 minutes. For the first ten minutes after a push, a
+# returning visitor may still be served the previous page and the previous assets
+# together — consistent, just not new. Hard-refresh if you need it immediately.
 V=$(date +%Y%m%d%H%M)
 python3 - "$V" <<'PY'
 import io, re, sys

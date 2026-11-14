@@ -41,9 +41,14 @@ Without an account the app still works end to end; it just stays on one device.
 ```
 
 The script stamps every local script and stylesheet in `index.html` with a fresh
-`?v=` so returning visitors get the new build. Without it GitHub Pages' long asset
-cache keeps serving the previous one — which is exactly how a freshly deployed key
-sat unused until a hard refresh.
+`?v=`. GitHub Pages sends `max-age=600` on both the HTML and the assets, and their
+ages drift apart — a freshly served page can pair with scripts that are most of
+the way through their own window. Stamping ties each asset to the HTML that asked
+for it, so that mismatch cannot happen.
+
+It does not shorten the ten minutes. For the first ten minutes after a push you
+may still be served the previous build — all of it, consistently. Hard-refresh
+(⇧⌘R / Ctrl-F5) if you need the change immediately.
 
 ## Setting up sync (once)
 
