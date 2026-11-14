@@ -474,6 +474,11 @@ textarea { resize: vertical; min-height: 84px; font-size: .84rem; }
 /* ============================= onboarding ============================= */
 
 .onboard { max-width: 660px; margin: 5vh auto; }
+
+/* The signed-out screen leads with the badge, because it is the only thing on
+   the page that says whose app this is — the sidebar is not drawn yet. */
+.gate-brand { display: flex; justify-content: center; margin-bottom: 4px; }
+.gate-brand img { width: 240px; height: auto; }
 .onboard .card { padding: 26px; }
 .step-dots { display: flex; gap: 6px; margin-bottom: 18px; }
 .step-dot { height: 3px; flex: 1; border-radius: 2px; background: var(--surface-3); }

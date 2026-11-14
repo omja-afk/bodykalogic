@@ -408,6 +408,22 @@
     });
   }
 
+  /* The signed-out screen. It borrows the onboarding overlay's container, so it
+   * is centred and the app chrome behind it stays hidden. */
+  function showGate() {
+    var root = document.getElementById('onboard-root');
+    UI.clear(root);
+    var mark = document.querySelector('.brand-logo');
+    root.appendChild(h('.onboard', [
+      h('.gate-brand', [h('img', {
+        src: mark ? mark.getAttribute('src') : '',
+        alt: 'BodyKaLogic — train smart, grow strong'
+      })]),
+      global.Views.signInGate()
+    ]));
+    document.getElementById('app').hidden = true;
+  }
+
   /* ================================= boot =============================== */
 
   function start() {
@@ -467,6 +483,14 @@
       S.set(S.normalise(data));
       var st = S.get();
       if (st.settings.theme) document.documentElement.dataset.theme = st.settings.theme;
+
+      // Signed out, the sign-in screen is not a card on Home — it is the whole
+      // app. Nothing is readable or editable until there is an account to put it
+      // in, so there is only ever one copy of a history and two devices cannot
+      // drift apart. Where sync is not configured at all there is no account to
+      // demand, so the app opens as it always did.
+      var sy = global.Sync.status();
+      if (sy.enabled && !sy.signedIn) { showGate(); return; }
 
       document.getElementById('app').hidden = false;
       var hash = location.hash.replace('#', '');

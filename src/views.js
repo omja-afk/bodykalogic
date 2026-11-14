@@ -73,9 +73,6 @@
     var st = S.get(), p = st.profile;
     var ready = profileReady(p);
 
-    var signIn = Views.signInCard && Views.signInCard();
-    if (signIn) root.appendChild(signIn);
-
     root.appendChild(heroCard(ready));
     root.appendChild(statRow(ready));
 
@@ -275,11 +272,15 @@
           onclick: function () { Views.openDietImport(); } })
       ]),
       h('.card', [
-        h('h3', { text: 'On your phone and your laptop' }),
+        h('h3', { text: 'Already on your phone' }),
+        // Anyone reading this is signed in — the app does not open otherwise —
+        // so this tells them what that already bought them, rather than selling
+        // them a step they have taken.
         h('p', { style: { fontSize: '.86rem', marginTop: '8px' },
-          text: 'Sign in with the same email on both and they show the same thing. It keeps working ' +
-                'with no signal — changes are saved on the device and go up when you reconnect.' }),
-        h('button.btn.btn-sm', { text: 'Set up syncing',
+          text: 'Open this site on any other device, sign in with the same email, and your ' +
+                'plan and history are there. It keeps working with no signal: changes are ' +
+                'saved on the device and go up when you reconnect.' }),
+        h('button.btn.btn-sm', { text: 'Account settings',
           onclick: function () { global.App.go('profile'); } })
       ])
     ]);

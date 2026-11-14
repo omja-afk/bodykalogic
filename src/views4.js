@@ -210,9 +210,13 @@
         h('.spacer'),
         h('button.btn.btn-sm.btn-ghost', { text: 'Sign out', onclick: function () {
           UI.confirm({ title: 'Sign out?',
-            message: 'Your data stays on this device and in your account. You can sign back in any time.',
+            message: 'Your history stays in your account — signing back in with the same ' +
+                     'email brings all of it back. This takes you to the sign-in screen, ' +
+                     'because the app does not run without an account.',
             confirmLabel: 'Sign out' }).then(function (ok) {
-            if (ok) global.Sync.signOut().then(function () { redraw(); });
+            // Reload rather than redraw: the gate is put up by boot, and boot is
+            // also what clears the signed-in state out of the page.
+            if (ok) global.Sync.signOut().then(function () { location.reload(); });
           });
         } })
       ]));
@@ -234,6 +238,12 @@
           redraw();
           return;
         }
+        // From the gate there is nothing to reconcile in the browser: boot has
+        // not handed any data to the app yet. Reloading re-enters the ordinary
+        // boot path, which already knows how to pull, compare and ask — rather
+        // than a second copy of that logic that could answer differently.
+        if (opts.gate) { note.textContent = 'Signed in. Loading your data…'; location.reload(); return; }
+
         // Signing in on a device that already has data is the moment to decide
         // which copy wins, so push the question through the same path boot uses.
         return global.Sync.pull().then(function (remote) {
@@ -257,10 +267,17 @@
       });
     }
 
-    card.appendChild(h('p', { text:
-      'Create an account, or sign in on a second device with the same email, and your ' +
-      'plan, logs and records follow you. Without one everything still works — it just ' +
-      'stays on this device.' }));
+    // If boot ended a session, say why rather than just presenting an empty form
+    // to someone who was signed in a moment ago.
+    if (sy.message) {
+      card.appendChild(h('.banner.is-warn', { html: '<div>' + UI.esc(sy.message) + '</div>' }));
+    }
+    card.appendChild(h('p', { text: opts.gate
+      ? 'Create an account, or sign in with one you already have. Your plan, logs and ' +
+        'records live in the account rather than in this browser, so the same email on ' +
+        'your phone shows exactly what your laptop shows.'
+      : 'Create an account, or sign in on a second device with the same email, and your ' +
+        'plan, logs and records follow you.' }));
     card.appendChild(h('.field-row', [
       h('div', [h('label', { text: 'Email' }), email]),
       h('div', [h('label', { text: 'Password' }), pass])
@@ -275,35 +292,24 @@
     card.appendChild(h('.hint', { text:
       'Your password is sent to your own Supabase project and nowhere else. This app has ' +
       'no server of its own, and nothing about your training leaves your account.' }));
-    if (opts.dismissable) {
-      card.appendChild(h('button.btn.btn-sm.btn-ghost', { style: { marginTop: '10px' },
-        text: 'Not now — use this device only', onclick: function () {
-          try { sessionStorage.setItem(SKIP_KEY, '1'); } catch (e) {}
-          redraw();
-        } }));
-    }
     return card;
   }
 
-  /* The same form, as the card Home leads with.
+  /* The same form, as the whole screen you meet when you are signed out.
    *
-   * A new visitor should meet sign-in rather than go looking for it — it used to
-   * be buried below the fold of another tab, which is no way to discover the one
-   * feature that makes a second device work. It persuades rather than blocks:
-   * everything below it on Home works without an account, and "not now" puts it
-   * away for the session. Signed in, it is not built at all, and signing out
-   * stays in Profile where the rest of the account lives.
+   * The app is an account now: nothing is shown and nothing is editable until
+   * you are in one. That is a deliberate narrowing — it used to run happily with
+   * no account, which meant a history could exist on one device and nowhere
+   * else, and the first sign-in then had to ask which copy to throw away. With
+   * one door there is one copy, and your phone and your laptop cannot disagree.
+   *
+   * Signing out stays in Profile, with the rest of the account.
    */
-  var SKIP_KEY = 'bkl.skipSignIn.v1';
-
-  Views.signInCard = function () {
-    var sy = global.Sync.status();
-    if (!sy.enabled || sy.signedIn) return null;
-    try { if (sessionStorage.getItem(SKIP_KEY)) return null; } catch (e) {}
+  Views.signInGate = function () {
     return accountCard({
       heading: 'Sign in to BodyKaLogic',
-      sub: 'one account, same numbers on your phone and your laptop',
-      dismissable: true
+      sub: 'one account — the same numbers on your phone and your laptop',
+      gate: true
     });
   };
 

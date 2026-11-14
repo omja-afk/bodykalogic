@@ -262,6 +262,20 @@
         setStatus('synced', '');
         return remote;
       }).catch(function (e) {
+        // A stored session the server rejects is not a session. Say so and end
+        // it, so boot puts the sign-in screen up rather than opening the app on
+        // an account it cannot actually reach — every edit made in that state
+        // would be stranded on this device, which is the split history the
+        // account exists to prevent.
+        //
+        // Only an explicit rejection counts. A request that failed because
+        // there is no network must leave the session alone: working offline
+        // from the local copy is the point, not a reason to sign anyone out.
+        if (e && (e.status === 401 || e.status === 403)) {
+          saveSession(null);
+          setStatus('signed-out', 'Your session has expired — sign in again.');
+          return null;
+        }
         setStatus(navigator.onLine ? 'error' : 'offline', e.message);
         return null;
       });
