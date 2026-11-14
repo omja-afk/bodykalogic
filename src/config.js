@@ -17,7 +17,10 @@
   global.AppConfig = {
     supabase: {
       url: 'https://dptouuhjswganghwvmfe.supabase.co',
-      anonKey: ''        // <- paste the anon / publishable key here
+      // Publishable key. Safe in the browser and safe in this repo precisely
+      // because row-level security is on — see supabase/schema.sql. It names the
+      // project, not the person; every query is still checked against auth.uid().
+      anonKey: 'sb_publishable_V6VYO2rptAW7s05rxeSZ1w_yQ9UO46y'
     },
     table: 'tracker_state'
   };
