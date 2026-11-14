@@ -1,0 +1,14 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Never commit personal tracker data
+*-data.json
+gymtrack-data*.json
+backups/
+data/
