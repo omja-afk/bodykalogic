@@ -1,11 +1,15 @@
-/* app.js — boot sequence, routing, and the first-run questionnaire.
+/* app.js — boot sequence, routing, and the optional guided setup.
  *
- * Boot order matters and is the whole point of the "info path":
- *   1. ask the store for a remembered folder
- *   2. if one is there and still permitted, read the data file out of it
- *   3. if it is there but the permission has lapsed, serve the mirror and show
- *      a reconnect prompt rather than silently starting a second history
- *   4. if there is nothing anywhere, this is a new user — run onboarding
+ * Boot order, and why it is this order:
+ *   1. read this device's localStorage copy — instant, and works with no network
+ *   2. if a session is stored, pull the account's copy from Supabase
+ *   3. if both have content and they differ, ask which one wins rather than
+ *      guessing — a wrong silent merge loses a workout
+ *   4. show the app either way. A cloud that is slow, unreachable or signed out
+ *      never blocks the first paint, and a new visitor lands on Home, not a form
+ *
+ * There is no folder and no "info path": the account is what follows you
+ * between devices. store.js records why the folder tier was dropped.
  */
 (function (global) {
   'use strict';
