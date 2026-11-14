@@ -410,87 +410,51 @@
     /* ---- account & sync, first because it is the thing that matters most */
     root.appendChild(accountCard());
 
-    /* ---- storage */
-    var status = global.Store.status();
-    var storageCard = h('.card');
-    storageCard.appendChild(h('.card-head', [
-      h('h3', { text: 'Backup to a folder' }),
-      h('span.card-sub', { text: 'optional — a plain JSON copy you own' })
-    ]));
+    /* ---- backup: a file you own, nothing more clever than that */
+    var backupCard = h('.card', [
+      h('.card-head', [
+        h('h3', { text: 'Backup' }),
+        h('span.card-sub', { text: 'a JSON file you keep yourself' })
+      ]),
+      h('p', { text:
+        'Your data lives on this device and, when you are signed in, in your account. ' +
+        'An exported file is a third copy that depends on neither — worth taking now and ' +
+        'again, since a free Supabase project pauses after about a week of no use.' })
+    ]);
 
-    if (status.needsPermission) {
-      storageCard.appendChild(h('.banner.is-warn', { html:
-        '<div><b>Your browser has dropped access to the data folder.</b> It asks again each session for security. ' +
-        'Reconnect to carry on writing to <code>' + UI.esc(status.pathLabel) + '</code> — nothing has been lost, ' +
-        'a mirror is held in browser storage.</div>' }));
-      storageCard.appendChild(h('button.btn.btn-primary', { text: 'Reconnect folder', onclick: function () {
-        global.Store.reconnect().then(function (data) {
-          if (data) { S.set(S.normalise(data)); }
-          redraw(); UI.toast('Reconnected.', 'good');
-        });
-      } }));
-    } else if (status.connected) {
-      storageCard.appendChild(h('.banner', { html:
-        '<div><b>Saving to ' + UI.esc(status.pathLabel) + '</b><br>' +
-        'Every change is written there, with a dated snapshot in <code>backups/</code>. ' +
-        'A copy is mirrored in this browser as a safety net.</div>' }));
-    } else {
-      storageCard.appendChild(h('.banner', { html:
-        '<div><b>No backup folder connected.</b> Your data is saved on this device and, if you are ' +
-        'signed in, in your account. A folder adds a third copy as plain JSON you can read and keep — ' +
-        'worth having, since a free Supabase project pauses after about a week of no use.' +
-        (status.capability === 'local'
-          ? ' <br>This browser does not support picking a folder; Chrome, Edge, Arc and Brave do. Use Export regularly here.'
-          : '') + '</div>' }));
+    var st2 = global.Store.status();
+    if (st2.lastError) {
+      backupCard.appendChild(h('.banner.is-bad', { html:
+        '<div><b>This device could not save.</b> ' + UI.esc(st2.lastError) +
+        '<br>Export a copy now, and check you are not in a private window.</div>' }));
     }
 
-    var btns = h('.card-head', { style: { marginTop: '12px', marginBottom: 0 } });
-    if (status.capability !== 'local') {
-      btns.appendChild(h('button.btn' + (status.connected ? '' : '.btn-primary'), {
-        text: status.connected ? 'Change folder' : 'Connect a folder',
-        onclick: function () {
-          global.Store.connect().then(function (existing) {
-            if (existing && existing.schema) {
-              UI.confirm({
-                title: 'That folder already has data',
-                message: 'It holds a BodyKaLogic data file. Load it and replace what is open, or keep what is open and overwrite the folder on the next save?',
-                confirmLabel: 'Load the folder’s data', cancelLabel: 'Keep what is open'
-              }).then(function (load) {
-                if (load) { S.set(S.normalise(existing)); }
-                S.save(); redraw();
-                UI.toast(load ? 'Loaded the data from that folder.' : 'Folder connected.', 'good');
-              });
-            } else { S.save(); redraw(); UI.toast('Folder connected.', 'good'); }
-          }).catch(function (e) { UI.toast(e.message, 'bad'); });
-        }
-      }));
-    }
-    btns.appendChild(h('button.btn', { text: '⬇ Export JSON', onclick: function () {
-      global.Store.exportFile(st); UI.toast('Exported.', 'good');
-    } }));
     var importInput = h('input', { type: 'file', accept: '.json', hidden: true });
     importInput.addEventListener('change', function (e) {
-      var f = e.target.files[0];
-      if (!f) return;
-      global.Store.importFile(f).then(function (data) {
+      var file = e.target.files[0];
+      if (!file) return;
+      global.Store.importFile(file).then(function (data) {
         UI.confirm({ title: 'Replace everything?',
-          message: 'Importing ' + f.name + ' replaces all the data currently open. Export first if you want to keep it.',
+          message: 'Importing ' + file.name + ' replaces all the data currently open, on this ' +
+                   'device and in your account. Export first if you want to keep it.',
           confirmLabel: 'Replace', danger: true }).then(function (ok) {
           if (!ok) return;
-          S.set(S.normalise(data)); S.save(); redraw();
+          S.set(S.normalise(data));
+          S.save();
+          redraw();
           UI.toast('Data imported.', 'good');
         });
       }).catch(function () { UI.toast('That file could not be read as JSON.', 'bad'); });
     });
-    btns.appendChild(h('button.btn', { text: '⬆ Import JSON', onclick: function () { importInput.click(); } }));
-    btns.appendChild(importInput);
-    if (status.connected) {
-      btns.appendChild(h('button.btn.btn-ghost', { text: 'Disconnect', onclick: function () {
-        global.Store.disconnect().then(function () { redraw(); UI.toast('Disconnected — the files on disk are untouched.'); });
-      } }));
-    }
-    storageCard.appendChild(btns);
-    root.appendChild(storageCard);
+
+    backupCard.appendChild(h('.card-head', { style: { marginBottom: 0 } }, [
+      h('button.btn', { text: '⬇ Export JSON', onclick: function () {
+        global.Store.exportFile(st); UI.toast('Exported.', 'good');
+      } }),
+      h('button.btn', { text: '⬆ Import JSON', onclick: function () { importInput.click(); } }),
+      importInput
+    ]));
+    root.appendChild(backupCard);
 
     /* ---- about you */
     var f = {};

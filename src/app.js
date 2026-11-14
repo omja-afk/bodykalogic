@@ -249,28 +249,26 @@
         }
       },
       {
-        title: 'Where should your data live?',
-        intro: 'Pick a folder and BodyKaLogic writes bodykalogic-data.json into it, plus a dated snapshot in backups/. Re-opening this page finds that folder again and loads your history. You can skip this and stay in browser storage, but a folder is the safer home.',
+        title: 'One last thing',
+        intro: 'Your data is saved on this device as you go. Create an account and it ' +
+               'follows you to your phone as well — same email on both, and both show the ' +
+               'same thing. You can do that now or later from Profile & data.',
         fields: function () {
-          var st = global.Store.status();
-          var out = [];
-          if (st.capability === 'local') {
-            out.push(h('.banner.is-warn', { html:
-              '<div><b>This browser cannot write to a folder.</b> Chrome, Edge, Arc and Brave can. ' +
-              'Your data will live in browser storage — use Export regularly to keep a copy.</div>' }));
-          } else {
-            var label = h('.hint', { text: 'No folder connected yet.' });
-            out.push(h('button.btn.btn-primary', { text: '📁 Choose a folder', onclick: function () {
-              global.Store.connect().then(function () {
-                label.textContent = 'Saving to ' + global.Store.status().pathLabel;
-                UI.toast('Folder connected.', 'good');
-              }).catch(function (e) { label.textContent = e.message; });
-            } }));
-            out.push(label);
+          var sy = global.Sync.status();
+          if (sy.signedIn) {
+            return [h('.banner', { html: '<div><b>Already signed in as ' + UI.esc(sy.email) +
+              '.</b> Your plan and logs will sync from here on.</div>' })];
           }
-          out.push(h('.hint', { style: { marginTop: '14px' },
-            text: 'Everything after this is editable — your answers, your plan, and where it is stored.' }));
-          return out;
+          return [
+            h('.banner', { html:
+              '<div><b>Without an account everything still works.</b> It just stays on this ' +
+              'device — so a lost phone, or a cleared browser, takes it with it.</div>' }),
+            h('button.btn', { text: 'Set up an account', onclick: function () {
+              finish(); App.go('profile');
+            } }),
+            h('.hint', { style: { marginTop: '12px' },
+              text: 'Or carry on — Profile & data has it whenever you want it.' })
+          ];
         },
         collect: function () { return true; }
       }
@@ -436,8 +434,8 @@
 
       if (res.source === 'cloud') {
         UI.toast('Loaded your data from your account.');
-      } else if (global.Store.status().needsPermission) {
-        UI.toast('Your backup folder needs reconnecting — open Profile & data.', 'bad');
+      } else if (global.Store.status().lastError) {
+        UI.toast(global.Store.status().lastError, 'bad');
       }
     }).catch(function (err) {
       console.error(err);

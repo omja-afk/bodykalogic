@@ -23,7 +23,14 @@ Three layers, in order of authority:
 |---|---|
 | **Your Supabase project** | The source of truth when you are signed in. One row per user, holding the whole state as JSON, protected by row-level security. |
 | **`localStorage`** | An offline cache, not a second database. Every change lands here first and unconditionally; the cloud push is debounced and best-effort. A failed push marks the state dirty and reconnecting flushes it — so a gym with no signal costs you nothing. |
-| **A folder you pick** | Optional third copy, as plain JSON with dated backups. Worth having: a free Supabase project pauses after about a week of inactivity. |
+
+There is deliberately no "pick a folder on disk" option. A browser cannot open a
+path like `Desktop/BodyKaLogic/progress` from a string — the File System Access
+API requires the user to choose the folder by hand, in every browser they use, and
+re-grant it periodically. An earlier version did that, and once sync existed it was
+a third copy that could silently disagree with the other two. Export covers the
+"a file I own" case without any of it.
+| **An exported file** | Optional third copy you keep yourself, via **Export JSON**. Worth taking now and again: a free Supabase project pauses after about a week of inactivity. |
 
 Without an account the app still works end to end; it just stays on one device.
 
@@ -53,33 +60,6 @@ appear in this repo or in any browser.
 
 By default Supabase emails a confirmation link on sign-up. To skip that while
 testing, turn off **Authentication → Sign In / Providers → Confirm email**.
-
-## How the local backup works
-
-On first load the app looks for a previously connected data folder. If it finds one it
-reads `bodykalogic-data.json` out of it and you carry on where you left off. If it does not,
-it treats you as a new user and runs the onboarding questionnaire.
-
-Three storage tiers, picked automatically by what the browser supports:
-
-| Tier | Requires | Behaviour |
-|---|---|---|
-| **Folder** | `showDirectoryPicker` (Chrome, Edge, Arc, Brave) | You pick a real folder once. Every change is written to `<folder>/bodykalogic-data.json`, plus a dated snapshot in `<folder>/backups/`. The folder handle is remembered in IndexedDB, so re-opening the site reconnects to the same path. |
-| **File** | `showSaveFilePicker` (some Safari builds) | Same, but a single JSON file instead of a folder. |
-| **Browser** | always | Falls back to `localStorage`. Still persistent, but scoped to the browser — use Export regularly. |
-
-Whichever tier is active, a mirror copy is always kept in `localStorage`, so a revoked
-permission or a moved folder never loses your history. Export and Import (JSON) are
-always available from the **Profile & Data** tab.
-
-Because the File System Access API needs a secure context, serve the folder rather than
-double-clicking the file:
-
-```bash
-python3 -m http.server 8080
-```
-
-then open <http://localhost:8080>.
 
 ## Tabs
 
@@ -213,7 +193,9 @@ take the plan to a professional first.
 ```
 index.html             markup and tab shells
 assets/styles.css      all styling, dark by default
-src/store.js           persistence: FS Access API, IndexedDB handle, localStorage mirror
+src/store.js           local cache: localStorage, export and import
+src/sync.js            accounts and cross-device sync over Supabase's REST API
+src/config.js          project URL and publishable key
 src/plan.js            workout plan generation and swapping
 src/diet.js            calorie/macro maths and 7-day menu generation
 src/data-exercises.js  488 movements, with the swap tiers
