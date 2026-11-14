@@ -84,10 +84,16 @@
         'the fewer protein-dense options there are. Widening the cuisine, or adding a shake, closes the gap.' }));
     }
 
+    var todayIdx = S.dietDayIndexFor(UI.todayKey());
     diet.days.forEach(function (day, di) {
+      // Day 1 is Monday, so the week on screen is the week you are living in.
+      var weekday = UI.DAY_NAMES[(di + 1) % 7];
+      var isToday = di === todayIdx;
       var card = h('.card', [
         h('.card-head', [
-          h('h3', { text: 'Day ' + (di + 1) }),
+          h('h3', { text: weekday }),
+          h('span.card-sub', { text: 'Day ' + (di + 1) + ' of 7' }),
+          isToday ? h('span.chip.chip-accent', { text: 'today' }) : null,
           h('.spacer'),
           VI.macroPills(day.totals)
         ])
@@ -369,7 +375,7 @@
     root.appendChild(h('.card', [
       h('.card-head', [
         h('h3', { text: session.dayName }),
-        h('span.card-sub', { text: UI.prettyDate(dateKey) }),
+        h('span.card-sub', { text: UI.DAY_NAMES[UI.parseKey(dateKey).getDay()] + ' · ' + UI.prettyDate(dateKey) }),
         h('.spacer'),
         h('button.btn.btn-sm', { text: '‹ Previous day', onclick: function () {
           global.App.logDate = UI.addDays(dateKey, -1); redraw();
@@ -393,6 +399,13 @@
       ]),
       h('.card-sub', { text: 'Volume so far: ' + Math.round(S.sessionVolume(session)).toLocaleString() + ' kg' })
     ]));
+
+    if (!session.entries.length) {
+      root.appendChild(h('.card', [h('.banner', { html:
+        '<div><b>Nothing scheduled for ' + UI.DAY_NAMES[UI.parseKey(dateKey).getDay()] + '.</b> ' +
+        'Rest is part of the plan. If you want to train anyway, pick a session from the ' +
+        'dropdown above and it will load here.</div>' })]));
+    }
 
     session.entries.forEach(function (entry, ei) {
       var card = h('.card');

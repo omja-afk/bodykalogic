@@ -38,9 +38,10 @@ then open <http://localhost:8080>.
 ## Tabs
 
 - **Home** — the entrance. Opens on your dashboard: weight, BMI on a banded scale,
-  protein against target, today's session, today's meals and the weight trend. Before
-  you have a profile it leads with a one-card setup instead, and the rest of the app
-  stays reachable while you decide.
+  protein against target, today's session, today's meals, and weight and BMI trends
+  side by side. Before you have a profile it leads with a one-card setup instead, and
+  the rest of the app stays reachable while you decide. A line from a library of 126
+  quotes sits at the top, one a day.
 - **Workout plan** — your split, with a gym / home-dumbbells / bodyweight switch at the
   top that re-equips the whole plan. Generated, imported, or written by hand.
 - **Diet plan** — seven distinct days built to your calorie and protein targets, with
@@ -53,8 +54,23 @@ then open <http://localhost:8080>.
 - **Body** — weight, body fat, and tape measurements, with BMI computed for you.
 - **Progress** — weekly weight and BMI trends, training volume, calories against
   target, per-exercise strength curves and a 12-week consistency heatmap.
-- **Profile & data** — your measurements and goals, plus folder connection, export,
-  import and reset.
+- **Profile & data** — your measurements, primary goal, training setup and food
+  preferences, plus an **Energy** panel that shows how your targets are reached
+  (BMR → activity → goal) and lets you overrule it: if you have tracked your own
+  intake and know your maintenance is 2100 kcal, put that in and the equation steps
+  aside. Also a free-text field for injuries or limitations, and folder connection,
+  export, import and reset.
+
+## The week
+
+Training days are pinned to weekdays — a five-day plan runs Monday, Tuesday,
+Wednesday, Friday, Saturday — so the plan tells you *which day* each session is, and
+the days in between are rest days rather than a queue you have fallen behind on. Each
+day's weekday is a dropdown, so move them to suit your week. Meal plan days are the
+days of the week too: Day 1 is Monday, and today's card is marked.
+
+Imported plans have no weekdays, so those fall back to a rotation: the next session is
+the next one in the list, whenever you get to it.
 
 ## Setting up
 
@@ -129,6 +145,9 @@ make that take a few seconds.
 If you have no plan, the app writes one from your answers (age, sex, height, weight,
 goal, experience, days per week, available equipment, injuries).
 
+- **Goals** — build muscle, lose fat, body recomposition, get stronger, endurance, or
+  general fitness. Each one changes both the training prescription and the calorie
+  adjustment.
 - **Training** — full-body A/B/C at 2–3 days, upper/lower at 4, push/pull/legs at 5–6.
   Rep ranges follow the goal: 4–6 for strength, 8–12 for hypertrophy, 12–15 plus
   conditioning for fat loss. Exercises are filtered to the equipment you have and any

@@ -21,6 +21,9 @@
   // kcal adjustment and protein g/kg by goal
   var GOAL_ADJ = {
     fat_loss:  { pct: -0.20, protein: 2.2, fatPct: 0.25 },
+    // Recomposition eats at maintenance and leans hard on protein — the whole
+    // point is to change what the weight is made of, not what it is.
+    recomp:    { pct:  0.00, protein: 2.2, fatPct: 0.25 },
     muscle:    { pct:  0.10, protein: 2.0, fatPct: 0.25 },
     strength:  { pct:  0.08, protein: 2.0, fatPct: 0.28 },
     endurance: { pct:  0.00, protein: 1.6, fatPct: 0.25 },
@@ -41,12 +44,22 @@
     var h = Number(profile.heightCm) || 170;
     var age = Number(profile.age) || 30;
     var base = (10 * w) + (6.25 * h) - (5 * age);
-    return Math.round(profile.sex === 'female' ? base - 161 : base + 5);
+    // The equation has a different constant per sex (+5 / -161). With no answer
+    // given, take the midpoint rather than silently assuming one.
+    if (profile.sex === 'female') return Math.round(base - 161);
+    if (profile.sex === 'male') return Math.round(base + 5);
+    return Math.round(base - 78);
   }
 
   function targets(profile) {
     var b = bmr(profile);
-    var tdee = Math.round(b * activityFactor(profile.activity));
+
+    // Mifflin-St Jeor is an estimate, and it can be 200-300 kcal out for any
+    // individual. Someone who has tracked their own intake for a few weeks knows
+    // their maintenance better than the equation does, so their figure wins.
+    var override = Number(profile.tdeeOverride);
+    var usingOverride = !!(override && override >= 800 && override <= 6000);
+    var tdee = usingOverride ? Math.round(override) : Math.round(b * activityFactor(profile.activity));
     var adj = GOAL_ADJ[profile.goal] || GOAL_ADJ.maintain;
     var kcal = Math.round(tdee * (1 + adj.pct));
 
@@ -76,6 +89,7 @@
     return {
       bmr: b,
       tdee: tdee,
+      tdeeSource: usingOverride ? 'yours' : 'estimated',
       kcal: kcal,
       protein: protein,
       fat: fat,

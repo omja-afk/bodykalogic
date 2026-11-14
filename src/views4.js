@@ -376,21 +376,23 @@
         field('name', 'Name', h('input', { value: p.name || '', placeholder: 'optional' })),
         field('sex', 'Sex', h('select', [
           h('option', { value: 'male', selected: p.sex === 'male', text: 'Male' }),
-          h('option', { value: 'female', selected: p.sex === 'female', text: 'Female' })
+          h('option', { value: 'female', selected: p.sex === 'female', text: 'Female' }),
+          h('option', { value: '', selected: !p.sex, text: 'Prefer not to say' })
         ])),
         field('age', 'Age', h('input', { type: 'number', min: 13, max: 100, value: p.age || '' })),
         field('heightCm', 'Height (cm)', h('input', { type: 'number', min: 100, max: 230, value: p.heightCm || '' })),
         field('weightKg', 'Weight (kg)', h('input', { type: 'number', step: 0.1, min: 25, max: 300, value: p.weightKg || '' })),
         field('targetWeightKg', 'Goal weight (kg)', h('input', { type: 'number', step: 0.1, value: p.targetWeightKg || '' }))
       ]),
-      h('.hint', { text: 'Sex is used only for the Mifflin-St Jeor equation, which has different constants for male and female bodies. Nothing else in the app reads it.' })
+      h('.hint', { text: 'Sex is used only for the Mifflin-St Jeor equation, which has different constants for male and female bodies. Leave it unanswered and the midpoint is used. Nothing else in the app reads it.' })
     ]));
 
     root.appendChild(h('.card', [
       h('.card-head', [h('h3', { text: 'Training' })]),
       h('.field-row', [
-        field('goal', 'Goal', h('select', PG.GOALS.map(function (g) {
-          return h('option', { value: g.id, selected: p.goal === g.id, text: g.label });
+        field('goal', 'Primary goal', h('select', PG.GOALS.map(function (g) {
+          return h('option', { value: g.id, selected: p.goal === g.id,
+                               text: g.label + (g.note ? ' — ' + g.note : '') });
         }))),
         field('experience', 'Experience', h('select', PG.EXPERIENCE.map(function (g) {
           return h('option', { value: g.id, selected: p.experience === g.id, text: g.label });
@@ -419,7 +421,56 @@
           return pill;
         })),
         h('.hint', { text: 'Movements that load these joints are left out of generated plans and swap lists. This is a convenience, not medical advice — see a professional about an actual injury.' })
+      ]),
+      h('.field', [
+        h('label', { text: 'Injuries, conditions or limitations (optional)' }),
+        h('textarea', { value: p.healthNotes || '', placeholder: 'Anything worth remembering before you train — a dodgy shoulder, a recent surgery, something your physio said.',
+          onchange: function (e) { p.healthNotes = e.target.value; S.save(); } }),
+        h('.hint', { text: 'Kept on your machine as a note to yourself. Nothing reads it and nothing is sent anywhere. If you have a medical condition, pain that persists, are pregnant, or have a history of disordered eating, take the plan to a professional before following it.' })
       ])
+    ]));
+
+    /* Energy: show the working, and let the user overrule it. */
+    var t = S.targets();
+    var tdeeInput = h('input', { type: 'number', min: 800, max: 6000, step: 10,
+      value: p.tdeeOverride || '', placeholder: String(t.tdee) });
+    f.tdeeOverride = tdeeInput;
+    var estimateLine = h('.hint');
+    function refreshEstimate() {
+      var override = Number(tdeeInput.value);
+      var using = override >= 800 && override <= 6000;
+      var preview = DG.targets(Object.assign({}, p, {
+        weightKg: S.currentWeight() || p.weightKg,
+        tdeeOverride: using ? override : null
+      }));
+      estimateLine.textContent =
+        'Working from ' + (using ? 'your figure' : 'the estimate') + ' of ' + preview.tdee +
+        ' kcal maintenance: ' + preview.kcal + ' kcal a day, ' + preview.protein +
+        ' g protein, ' + preview.carbs + ' g carbs, ' + preview.fat + ' g fat.';
+    }
+    tdeeInput.addEventListener('input', refreshEstimate);
+
+    root.appendChild(h('.card', [
+      h('.card-head', [
+        h('h3', { text: 'Energy' }),
+        h('span.card-sub', { text: 'what your daily targets are built from' })
+      ]),
+      h('.field-row', [
+        h('div', [
+          h('label', { text: 'Maintenance calories (kcal/day)' }),
+          tdeeInput,
+          h('.hint', { text: 'Leave blank to use the estimate. If you have tracked your own intake for a few weeks and know your maintenance, put it here and it overrules the equation.' })
+        ]),
+        h('div', [
+          h('label', { text: 'How the estimate is reached' }),
+          h('p', { style: { margin: 0, fontSize: '.82rem', color: 'var(--ink-2)' },
+            html: 'Mifflin-St Jeor BMR <b>' + t.bmr + ' kcal</b><br>' +
+                  '× activity factor → <b>' + t.tdee + ' kcal</b> maintenance<br>' +
+                  'then adjusted for your goal → <b>' + t.kcal + ' kcal</b>' })
+        ])
+      ]),
+      estimateLine,
+      h('.hint', { text: 'These are ordinary starting points from a standard equation, not medical advice. Adjust after two or three weeks of real trend data — what the scale and the mirror do beats what any formula predicts.' })
     ]));
 
     root.appendChild(h('.card', [

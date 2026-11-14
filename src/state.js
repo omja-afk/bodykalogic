@@ -22,7 +22,9 @@
         activity: 'moderate', goal: 'muscle', experience: 'beginner',
         daysPerWeek: 4, equipment: 'gym', avoid: [],
         dietPref: 'veg', cuisine: 'indian', dislikes: [],
-        targetWeightKg: null
+        targetWeightKg: null,
+        tdeeOverride: null,      // your own maintenance figure, if you know it
+        healthNotes: ''          // a note to yourself; nothing reads it
       },
       plan: null,
       diet: null,
@@ -86,19 +88,51 @@
     return DG.targets(p);
   }
 
-  /* Which planned session belongs to a date. The plan is a rotation, not a
-   * calendar: day N is the Nth training day since the plan was created, so a
-   * missed day shifts the rotation rather than skipping a session. */
+  /* Which planned session belongs to a date.
+   *
+   * Generated plans pin each training day to a weekday, so Tuesday is Pull and
+   * the rest days fall where they were designed to. Imported plans have no
+   * weekdays, so those fall back to a rotation: day N is the Nth training day
+   * since the plan started, which means a missed session shifts the rotation
+   * rather than being skipped.
+   */
   function plannedDayFor(dateKey) {
     if (!state.plan || !state.plan.days.length) return null;
+
+    var existing = state.workouts[dateKey];
+    if (existing && existing.dayIndex != null && state.plan.days[existing.dayIndex]) {
+      return { index: existing.dayIndex, day: state.plan.days[existing.dayIndex], rest: false };
+    }
+
+    var scheduled = state.plan.days.some(function (d) { return d.weekday != null; });
+    if (scheduled) {
+      var dow = UI.parseKey(dateKey).getDay();
+      for (var i = 0; i < state.plan.days.length; i++) {
+        if (state.plan.days[i].weekday === dow) {
+          return { index: i, day: state.plan.days[i], rest: false };
+        }
+      }
+      return { index: null, day: null, rest: true };
+    }
+
     var done = Object.keys(state.workouts)
       .filter(function (k) { return k < dateKey && state.workouts[k].completed; })
       .length;
-    var existing = state.workouts[dateKey];
-    var idx = existing && existing.dayIndex != null
-      ? existing.dayIndex
-      : done % state.plan.days.length;
-    return { index: idx, day: state.plan.days[idx] };
+    var idx = done % state.plan.days.length;
+    return { index: idx, day: state.plan.days[idx], rest: false };
+  }
+
+  /* Which of the seven generated meal days belongs to a date. Day 1 is Monday,
+   * so the plan lines up with the week rather than with whenever you signed up. */
+  function dietDayIndexFor(dateKey) {
+    var dow = UI.parseKey(dateKey).getDay();   // 0 = Sunday
+    return (dow + 6) % 7;                      // 0 = Monday
+  }
+
+  function dietDayFor(dateKey) {
+    if (!state.diet || !state.diet.days.length) return null;
+    var i = dietDayIndexFor(dateKey);
+    return state.diet.days[i % state.diet.days.length] || null;
   }
 
   function sessionFor(dateKey, create) {
@@ -106,11 +140,12 @@
     if (s) return s;
     if (!create) return null;
     var planned = plannedDayFor(dateKey);
+    var pday = planned && planned.day ? planned.day : null;
     s = {
       date: dateKey,
-      dayIndex: planned ? planned.index : null,
-      dayName: planned ? planned.day.name : 'Session',
-      entries: planned ? planned.day.slots.map(function (slot) {
+      dayIndex: pday ? planned.index : null,
+      dayName: pday ? pday.name : 'Rest day',
+      entries: pday ? pday.slots.map(function (slot) {
         return {
           exId: slot.exId, name: slot.name, pattern: slot.pattern,
           targetSets: slot.sets, targetReps: slot.reps,
@@ -223,6 +258,8 @@
     currentBMI: currentBMI,
     targets: targets,
     plannedDayFor: plannedDayFor,
+    dietDayIndexFor: dietDayIndexFor,
+    dietDayFor: dietDayFor,
     sessionFor: sessionFor,
     nutritionFor: nutritionFor,
     e1rm: e1rm,

@@ -188,6 +188,15 @@ a  { color: var(--accent); }
   border-color: rgba(57,135,229,.22);
 }
 .card.hero h2 { font-size: 1.5rem; margin-top: 2px; }
+.quote {
+  display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap;
+  margin-top: 14px; padding-top: 13px;
+  border-top: 1px solid var(--hairline-soft);
+  font-size: .88rem; color: var(--ink-2);
+}
+.quote-mark { color: var(--accent); font-size: 1.3rem; line-height: 0; font-weight: 700; }
+.quote-text { font-style: italic; }
+.quote-by { color: var(--ink-muted); font-size: .8rem; }
 .card.hero p { max-width: 62ch; }
 .card-head {
   display: flex; align-items: center; gap: 10px;

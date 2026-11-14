@@ -84,14 +84,18 @@
 
     root.appendChild(bmiCard());
     root.appendChild(todayGrid());
-    root.appendChild(weightTrendCard());
+    root.appendChild(trendGrid());
   };
 
   function heroCard(ready) {
     var st = S.get(), p = st.profile;
-    var now = new Date();
-    var hour = now.getHours();
-    var greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    // 2 a.m. is not morning to anyone awake at 2 a.m., so the small hours get
+    // their own greeting instead of falling into "before noon".
+    var hour = new Date().getHours();
+    var greeting = hour >= 5 && hour < 12 ? 'Good morning'
+                 : hour >= 12 && hour < 17 ? 'Good afternoon'
+                 : hour >= 17 && hour < 22 ? 'Good evening'
+                 : 'Good night';
     var goal = (PG.GOALS.filter(function (g) { return g.id === p.goal; })[0] || {}).label;
 
     return h('.card.hero', [
@@ -105,7 +109,18 @@
         ]),
         h('.spacer'),
         ready && goal ? h('span.chip.chip-accent', { text: goal }) : null
-      ])
+      ]),
+      quoteLine()
+    ]);
+  }
+
+  /* One line a day, the same all day, from the quote library. */
+  function quoteLine() {
+    var q = global.Quotes.forDay(UI.todayKey());
+    return h('.quote', [
+      h('span.quote-mark', { text: '\u201C' }),
+      h('span.quote-text', { text: q.text }),
+      q.by ? h('span.quote-by', { text: '— ' + q.by }) : null
     ]);
   }
 
@@ -331,10 +346,15 @@
       sessionCard.appendChild(h('p', { text: 'No workout plan yet.' }));
       sessionCard.appendChild(h('button.btn.btn-sm', { text: 'Build one',
         onclick: function () { global.App.go('plan'); } }));
-    } else if (planned) {
+    } else if (planned && planned.rest) {
+      sessionCard.appendChild(h('.banner', { html:
+        '<div><b>Rest day.</b> Nothing is scheduled for ' +
+        UI.DAY_NAMES[UI.parseKey(today).getDay()] + '. Recovery is part of the plan — ' +
+        'open the log if you want to train anyway.</div>' }));
+    } else if (planned && planned.day) {
       sessionCard.appendChild(h('.day-head', [
         h('h4', { text: planned.day.name }),
-        h('span.card-sub', { text: planned.day.focus })
+        h('span.card-sub', { text: dayWhen(planned.day) + (planned.day.focus ? ' · ' + planned.day.focus : '') })
       ]));
       planned.day.slots.slice(0, 6).forEach(function (slot) {
         var logged = session && (session.entries.filter(function (e) { return e.name === slot.name; })[0] || {}).sets;
@@ -378,15 +398,45 @@
         }, 0);
       });
       foodCard.appendChild(ring);
-      var planIdx = ((UI.daysBetween(UI.todayKey(new Date(st.createdAt)), today) % 7) + 7) % 7;
-      var dietDay = st.diet.days[planIdx];
+      var dietDay = S.dietDayFor(today);
       if (dietDay) {
         foodCard.appendChild(h('.card-sub', { style: { marginTop: '12px' },
-          text: 'Planned today: ' + dietDay.meals.map(function (m) { return m.title; }).join(' · ') }));
+          text: 'Planned for ' + UI.DAY_NAMES[UI.parseKey(today).getDay()] + ': ' +
+                dietDay.meals.map(function (m) { return m.title; }).join(' · ') }));
       }
     }
     grid.appendChild(foodCard);
     return grid;
+  }
+
+  /* Weight and BMI side by side. Two charts rather than two lines: a BMI of 26
+   * plotted under a weight of 82 is a flat line along the bottom. */
+  function trendGrid() {
+    var grid = h('.grid.grid-2', { style: { marginTop: '16px' } });
+    grid.appendChild(weightTrendCard());
+    grid.appendChild(bmiTrendCard());
+    return grid;
+  }
+
+  function bmiTrendCard() {
+    var st = S.get(), today = UI.todayKey();
+    return chartCard('BMI trend', 'last 90 days', function (host) {
+      var pts = [];
+      for (var i = 89; i >= 0; i--) {
+        var k = UI.addDays(today, -i);
+        var b = st.body[k];
+        var v = (b && b.weightKg && st.profile.heightCm)
+          ? DG.bmi(b.weightKg, st.profile.heightCm) : null;
+        pts.push({ x: UI.shortDate(k), y: v });
+      }
+      var any = pts.some(function (p) { return p.y != null; });
+      C.line(host, {
+        series: any ? [{ name: 'BMI', points: carryForward(pts) }] : [],
+        dp: 1, area: true, height: 250,
+        target: 24.9, targetLabel: 'healthy ceiling',
+        empty: 'Add your height and a weigh-in and this fills in.'
+      });
+    });
   }
 
   function weightTrendCard() {
@@ -484,11 +534,21 @@
     plan.days.forEach(function (day, di) {
       var card = h('.card', [
         h('.card-head', [
-          h('input', { value: day.name, style: { fontWeight: '650', maxWidth: '220px' },
+          h('input', { value: day.name, style: { fontWeight: '650', maxWidth: '190px' },
             onchange: function (e) { day.name = e.target.value; S.save(); } }),
           h('input', { value: day.focus || '', placeholder: 'focus (optional)',
-            style: { maxWidth: '200px', fontSize: '.8rem' },
+            style: { maxWidth: '180px', fontSize: '.8rem' },
             onchange: function (e) { day.focus = e.target.value; S.save(); } }),
+          h('select', { style: { maxWidth: '130px', fontSize: '.8rem' },
+            title: 'Which day of the week this session falls on',
+            onchange: function (e) {
+              day.weekday = e.target.value === '' ? null : Number(e.target.value);
+              S.save(); redraw();
+            } },
+            [h('option', { value: '', selected: day.weekday == null, text: 'Any day' })].concat(
+              [1, 2, 3, 4, 5, 6, 0].map(function (d) {
+                return h('option', { value: d, selected: day.weekday === d, text: UI.DAY_NAMES[d] });
+              }))),
           h('.spacer'),
           h('span.card-sub', { text: day.slots.length + ' exercises' }),
           h('button.btn.btn-sm.btn-danger', { text: 'Remove day', onclick: function () {
@@ -511,6 +571,12 @@
       root.appendChild(card);
     });
   };
+
+  /* "Mon" / "any day" — what a plan day is called in the week. */
+  function dayWhen(day) {
+    return day.weekday == null ? 'any day' : UI.DAY_NAMES[day.weekday];
+  }
+  Views.dayWhen = dayWhen;
 
   function exerciseRow(plan, day, di, slot, si) {
     var st = S.get();

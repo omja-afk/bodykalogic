@@ -18,10 +18,21 @@
     muscle:    { compound: { sets: 4, reps: [8, 12],  rest: 120 }, iso: { sets: 3, reps: [10, 15], rest: 75 },  cardio: 1 },
     fat_loss:  { compound: { sets: 3, reps: [12, 15], rest: 60 },  iso: { sets: 3, reps: [15, 20], rest: 45 },  cardio: 2 },
     endurance: { compound: { sets: 3, reps: [15, 20], rest: 45 },  iso: { sets: 2, reps: [15, 20], rest: 45 },  cardio: 2 },
-    maintain:  { compound: { sets: 3, reps: [8, 12],  rest: 90 },  iso: { sets: 3, reps: [12, 15], rest: 60 },  cardio: 1 }
+    maintain:  { compound: { sets: 3, reps: [8, 12],  rest: 90 },  iso: { sets: 3, reps: [12, 15], rest: 60 },  cardio: 1 },
+    recomp:    { compound: { sets: 4, reps: [8, 12],  rest: 105 }, iso: { sets: 3, reps: [10, 15], rest: 75 },  cardio: 1 }
   };
 
   var VOLUME = { beginner: 5, intermediate: 6, advanced: 7 };
+
+  /* Default weekday for each training day, 0 = Sunday. Spread so the rest days
+   * fall between sessions rather than all landing at the end of the week. */
+  var WEEK_SCHEDULE = {
+    2: [1, 4],
+    3: [1, 3, 5],
+    4: [1, 2, 4, 5],
+    5: [1, 2, 3, 5, 6],
+    6: [1, 2, 3, 4, 5, 6]
+  };
 
   /* Split templates: an ordered list of pattern slots per training day. The
    * generator fills each slot with the best available movement for that pattern. */
@@ -134,7 +145,11 @@
         }
       }
 
-      return { name: day.name, focus: day.focus, slots: slots, notes: '' };
+      var sched = WEEK_SCHEDULE[days] || [];
+      return {
+        name: day.name, focus: day.focus, slots: slots, notes: '',
+        weekday: sched[dayIdx] != null ? sched[dayIdx] : null
+      };
     });
 
     return {
@@ -214,17 +229,19 @@
 
   global.PlanGen = {
     GOAL_RX: GOAL_RX,
+    WEEK_SCHEDULE: WEEK_SCHEDULE,
     SPLITS: SPLITS,
     generate: generate,
     alternativesForSlot: alternativesForSlot,
     applySwap: applySwap,
     reequip: reequip,
     GOALS: [
-      { id: 'muscle',    label: 'Build muscle' },
-      { id: 'fat_loss',  label: 'Lose fat' },
-      { id: 'strength',  label: 'Get stronger' },
-      { id: 'endurance', label: 'Endurance / conditioning' },
-      { id: 'maintain',  label: 'Stay healthy' }
+      { id: 'muscle',    label: 'Build muscle',            note: 'slight surplus, hypertrophy rep ranges' },
+      { id: 'fat_loss',  label: 'Lose fat',                note: '20% deficit, protein held high' },
+      { id: 'recomp',    label: 'Body recomposition',      note: 'eat at maintenance, build while leaning out' },
+      { id: 'strength',  label: 'Get stronger',            note: 'heavy low-rep work, small surplus' },
+      { id: 'endurance', label: 'Endurance / conditioning',note: 'higher reps, more conditioning' },
+      { id: 'maintain',  label: 'General fitness',         note: 'stay where you are, stay healthy' }
     ],
     EXPERIENCE: [
       { id: 'beginner',     label: 'Beginner (under 6 months)' },

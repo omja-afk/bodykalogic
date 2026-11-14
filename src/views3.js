@@ -47,10 +47,9 @@
 
     /* add the day's planned meals in one tap */
     if (st.diet) {
-      var planIdx = ((UI.daysBetween(UI.todayKey(new Date(st.createdAt)), dateKey) % 7) + 7) % 7;
-      var planned = st.diet.days[planIdx];
+      var planned = S.dietDayFor(dateKey);
       var card = h('.card', [h('.card-head', [
-        h('h3', { text: 'Planned for this day' }),
+        h('h3', { text: 'Planned for ' + UI.DAY_NAMES[UI.parseKey(dateKey).getDay()] }),
         h('.spacer'),
         h('button.btn.btn-sm', { text: 'Add all planned meals', onclick: function () {
           planned.meals.forEach(function (m) {
