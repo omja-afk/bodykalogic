@@ -10,7 +10,40 @@ No server. No account. No tracking. The only thing that ever touches the network
 text-recognition engine, downloaded once from a CDN if you choose to import a training
 plan from a photo — and even then the image is read on your own machine.
 
-## How the "info path" works
+## Live
+
+<https://omja-afk.github.io/bodykalogic/> — open it on your phone and your laptop,
+sign in with the same email, and both show the same data.
+
+## Where your data lives
+
+Three layers, in order of authority:
+
+| Layer | Role |
+|---|---|
+| **Your Supabase project** | The source of truth when you are signed in. One row per user, holding the whole state as JSON, protected by row-level security. |
+| **`localStorage`** | An offline cache, not a second database. Every change lands here first and unconditionally; the cloud push is debounced and best-effort. A failed push marks the state dirty and reconnecting flushes it — so a gym with no signal costs you nothing. |
+| **A folder you pick** | Optional third copy, as plain JSON with dated backups. Worth having: a free Supabase project pauses after about a week of inactivity. |
+
+Without an account the app still works end to end; it just stays on one device.
+
+## Setting up sync (once)
+
+1. In your Supabase project, open **SQL Editor** and run [`supabase/schema.sql`](supabase/schema.sql).
+   It creates one table and the row-level-security policies.
+2. Open **Project Settings → API** and copy the **anon / publishable** key.
+3. Paste it into `src/config.js` as `anonKey`.
+
+The anon key is public by design — it ships inside every Supabase browser app and
+is safe to commit **because** row-level security is on. It identifies the project,
+not the person; every query is still checked against the signed-in user. The
+`service_role` key is the opposite: it bypasses those policies, so it must never
+appear in this repo or in any browser.
+
+By default Supabase emails a confirmation link on sign-up. To skip that while
+testing, turn off **Authentication → Sign In / Providers → Confirm email**.
+
+## How the local backup works
 
 On first load the app looks for a previously connected data folder. If it finds one it
 reads `bodykalogic-data.json` out of it and you carry on where you left off. If it does not,
