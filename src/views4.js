@@ -156,6 +156,127 @@
     });
   }
 
+  function accountCard() {
+    var sy = global.Sync.status();
+    var card = h('.card', [
+      h('.card-head', [
+        h('h3', { text: 'Account & sync' }),
+        h('span.card-sub', { text: 'so your phone and laptop show the same thing' })
+      ])
+    ]);
+
+    if (!sy.enabled) {
+      card.appendChild(h('.banner.is-warn', { html:
+        '<div><b>Sync is not configured yet.</b> Everything works and is saved on this ' +
+        'device, but it will not follow you to another one. Add your project key in ' +
+        '<code>src/config.js</code> and run <code>supabase/schema.sql</code> once.</div>' }));
+      return card;
+    }
+
+    if (sy.signedIn) {
+      var tone = sy.state === 'synced' ? 'is-good' : sy.state === 'error' ? 'is-bad' : 'is-warn';
+      card.appendChild(h('.banner' + (tone === 'is-good' ? '' : '.' + tone), { html:
+        '<div><b>Signed in as ' + UI.esc(sy.email) + '.</b><br>' +
+        (sy.state === 'synced'
+          ? 'Everything is saved to your account. Open this site on your phone, sign in with the same email, and your history is there.'
+          : sy.state === 'offline'
+            ? 'Offline. Changes are being kept on this device and will go up when you reconnect.'
+            : sy.state === 'syncing' ? 'Syncing…'
+            : UI.esc(sy.message || 'Something went wrong syncing.')) +
+        (sy.lastSync ? '<br><span class="hint">Last synced ' + new Date(sy.lastSync).toLocaleTimeString() + '.</span>' : '') +
+        '</div>' }));
+      card.appendChild(h('.card-head', { style: { marginBottom: 0 } }, [
+        h('button.btn.btn-sm', { text: '↻ Sync now', onclick: function () {
+          global.Sync.push(S.get()).then(function (ok) {
+            UI.toast(ok ? 'Synced.' : 'Could not reach your account — saved here for now.', ok ? 'good' : 'bad');
+            redraw();
+          });
+        } }),
+        h('button.btn.btn-sm', { text: '⬇ Pull from account', onclick: function () {
+          UI.confirm({ title: 'Replace this device\u2019s data?',
+            message: 'This loads the copy from your account and overwrites what is on this device.',
+            confirmLabel: 'Load it', danger: true }).then(function (ok) {
+            if (!ok) return;
+            global.Sync.pull().then(function (remote) {
+              if (!remote) { UI.toast('Nothing stored in your account yet.', 'bad'); return; }
+              S.set(S.normalise(remote.data));
+              global.Store.save(S.get());
+              redraw();
+              UI.toast('Loaded from your account.', 'good');
+            }).catch(function (e) { UI.toast(e.message, 'bad'); });
+          });
+        } }),
+        h('.spacer'),
+        h('button.btn.btn-sm.btn-ghost', { text: 'Sign out', onclick: function () {
+          UI.confirm({ title: 'Sign out?',
+            message: 'Your data stays on this device and in your account. You can sign back in any time.',
+            confirmLabel: 'Sign out' }).then(function (ok) {
+            if (ok) global.Sync.signOut().then(function () { redraw(); });
+          });
+        } })
+      ]));
+      return card;
+    }
+
+    /* signed out — one form doing both jobs */
+    var email = h('input', { type: 'email', placeholder: 'you@example.com', autocomplete: 'username' });
+    var pass = h('input', { type: 'password', placeholder: 'at least 6 characters', autocomplete: 'current-password' });
+    var note = h('.hint');
+
+    function attempt(fn, label) {
+      var e = email.value.trim(), pw = pass.value;
+      if (!e || !pw) { note.textContent = 'Enter an email and a password.'; return; }
+      note.textContent = label + '…';
+      fn(e, pw).then(function (res) {
+        if (res && res.confirmed === false) {
+          note.textContent = 'Account created. Check your email for the confirmation link, then sign in.';
+          redraw();
+          return;
+        }
+        // Signing in on a device that already has data is the moment to decide
+        // which copy wins, so push the question through the same path boot uses.
+        return global.Sync.pull().then(function (remote) {
+          if (remote && remote.data) {
+            return UI.confirm({
+              title: 'Your account already has data',
+              message: 'Load what is in your account and replace this device, or keep this device and overwrite the account?',
+              confirmLabel: 'Load from account', cancelLabel: 'Keep this device'
+            }).then(function (useCloud) {
+              if (useCloud) { S.set(S.normalise(remote.data)); global.Store.save(S.get()); }
+              else { global.Sync.push(S.get()); }
+            });
+          }
+          return global.Sync.push(S.get());
+        }).then(function () {
+          redraw();
+          UI.toast('Signed in — syncing from here on.', 'good');
+        });
+      }).catch(function (err) {
+        note.textContent = err.message;
+      });
+    }
+
+    card.appendChild(h('p', { text:
+      'Create an account, or sign in on a second device with the same email, and your ' +
+      'plan, logs and records follow you. Without one everything still works — it just ' +
+      'stays on this device.' }));
+    card.appendChild(h('.field-row', [
+      h('div', [h('label', { text: 'Email' }), email]),
+      h('div', [h('label', { text: 'Password' }), pass])
+    ]));
+    card.appendChild(h('.card-head', { style: { marginBottom: '6px' } }, [
+      h('button.btn.btn-primary', { text: 'Sign in',
+        onclick: function () { attempt(global.Sync.signIn, 'Signing in'); } }),
+      h('button.btn', { text: 'Create an account',
+        onclick: function () { attempt(global.Sync.signUp, 'Creating your account'); } })
+    ]));
+    card.appendChild(note);
+    card.appendChild(h('.hint', { text:
+      'Your password is sent to your own Supabase project and nowhere else. This app has ' +
+      'no server of its own, and nothing about your training leaves your account.' }));
+    return card;
+  }
+
   /* ============================== PROGRESS ============================== */
 
   Views.progress = function (root) {
@@ -286,10 +407,16 @@
     UI.clear(root);
     var st = S.get(), p = st.profile;
 
+    /* ---- account & sync, first because it is the thing that matters most */
+    root.appendChild(accountCard());
+
     /* ---- storage */
     var status = global.Store.status();
     var storageCard = h('.card');
-    storageCard.appendChild(h('.card-head', [h('h3', { text: 'Where your data lives' })]));
+    storageCard.appendChild(h('.card-head', [
+      h('h3', { text: 'Backup to a folder' }),
+      h('span.card-sub', { text: 'optional — a plain JSON copy you own' })
+    ]));
 
     if (status.needsPermission) {
       storageCard.appendChild(h('.banner.is-warn', { html:
@@ -308,10 +435,10 @@
         'Every change is written there, with a dated snapshot in <code>backups/</code>. ' +
         'A copy is mirrored in this browser as a safety net.</div>' }));
     } else {
-      storageCard.appendChild(h('.banner.is-warn', { html:
-        '<div><b>Your data is in this browser only.</b> It survives a reload, but it is tied to this browser ' +
-        'profile and can be cleared by it. Connecting a folder keeps it as plain JSON on your machine — ' +
-        'readable, backed up and yours.' +
+      storageCard.appendChild(h('.banner', { html:
+        '<div><b>No backup folder connected.</b> Your data is saved on this device and, if you are ' +
+        'signed in, in your account. A folder adds a third copy as plain JSON you can read and keep — ' +
+        'worth having, since a free Supabase project pauses after about a week of no use.' +
         (status.capability === 'local'
           ? ' <br>This browser does not support picking a folder; Chrome, Edge, Arc and Brave do. Use Export regularly here.'
           : '') + '</div>' }));

@@ -71,14 +71,27 @@
   function renderStorageChip() {
     var host = document.getElementById('storage-chip');
     if (!host) return;
-    var st = global.Store.status();
     UI.clear(host);
-    var cls = st.needsPermission ? 'chip-warn' : (st.connected ? 'chip-good' : 'chip-warn');
-    var text = st.needsPermission ? 'Folder needs reconnecting'
-             : st.connected ? 'Saving to ' + st.pathLabel
-             : 'Browser storage only';
-    host.appendChild(h('span.chip.' + cls, { text: text, title: text }));
-    if (st.lastError) host.appendChild(h('.hint', { text: st.lastError }));
+
+    var sy = global.Sync ? global.Sync.status() : { enabled: false };
+    var map = {
+      'synced':     ['chip-good', 'Synced'],
+      'syncing':    ['chip-accent', 'Syncing…'],
+      'offline':    ['chip-warn', 'Offline — saved here'],
+      'error':      ['chip-bad', 'Sync problem'],
+      'signed-out': ['chip-warn', 'Not signed in'],
+      'off':        ['chip-warn', 'This device only']
+    };
+    var row = map[sy.state] || map.off;
+    var label = row[1];
+    if (sy.state === 'synced' && sy.email) label = 'Synced · ' + sy.email;
+    if (sy.dirty && sy.state !== 'syncing') label += ' (pending)';
+
+    var chip = h('span.chip.' + row[0], { text: label, title: sy.message || label });
+    chip.style.cursor = 'pointer';
+    chip.addEventListener('click', function () { App.go('profile'); });
+    host.appendChild(chip);
+    if (sy.message && sy.state === 'error') host.appendChild(h('.hint', { text: sy.message }));
   }
 
   /* ============================== onboarding ============================ */
@@ -317,6 +330,63 @@
     draw();
   }
 
+  /* Decide what to open with when there is a local copy and a cloud copy.
+   *
+   * Clocks on two devices do not agree, so "newest wins" silently is a good way
+   * to lose a session. When both sides have real content and they differ, ask —
+   * it happens rarely enough to be worth one question, and the wrong answer here
+   * costs a workout. */
+  function summarise(d) {
+    if (!d) return 'empty';
+    var bits = [];
+    var w = Object.keys(d.workouts || {}).length;
+    var b = Object.keys(d.body || {}).length;
+    var n = Object.keys(d.nutrition || {}).length;
+    if (w) bits.push(w + ' session' + (w > 1 ? 's' : ''));
+    if (b) bits.push(b + ' weigh-in' + (b > 1 ? 's' : ''));
+    if (n) bits.push(n + ' day' + (n > 1 ? 's' : '') + ' of food');
+    return bits.length ? bits.join(', ') : 'profile only';
+  }
+
+  function hasContent(d) {
+    if (!d) return false;
+    return !!(d.settings && d.settings.onboarded) ||
+           Object.keys(d.workouts || {}).length > 0 ||
+           Object.keys(d.body || {}).length > 0;
+  }
+
+  function reconcile(localRes, remote) {
+    var localData = localRes && localRes.data;
+    if (!remote || !remote.data) return Promise.resolve(localRes);
+    if (!hasContent(localData)) {
+      return Promise.resolve({ data: remote.data, source: 'cloud' });
+    }
+    if (!hasContent(remote.data)) return Promise.resolve(localRes);
+
+    var localStamp = Number(localData.updatedAt) || 0;
+    var remoteStamp = Date.parse(remote.updatedAt) || 0;
+    if (JSON.stringify(localData) === JSON.stringify(remote.data)) {
+      return Promise.resolve({ data: remote.data, source: 'cloud' });
+    }
+
+    return UI.confirm({
+      title: 'Two copies of your data',
+      message:
+        'This device has ' + summarise(localData) + ', last changed ' +
+        new Date(localStamp).toLocaleString() + '. Your account has ' +
+        summarise(remote.data) + ', last changed ' +
+        new Date(remoteStamp).toLocaleString() + '. Which should win? ' +
+        'The other is overwritten, so export a backup first if you are unsure.',
+      confirmLabel: 'Use the cloud copy',
+      cancelLabel: 'Keep this device'
+    }).then(function (useCloud) {
+      if (useCloud) return { data: remote.data, source: 'cloud' };
+      // Keeping local means the cloud is now stale; push as soon as we are up.
+      setTimeout(function () { global.Sync.push(S.get()); }, 1200);
+      return localRes;
+    });
+  }
+
   /* ================================= boot =============================== */
 
   function start() {
@@ -339,8 +409,16 @@
     });
 
     global.Store.onChange(function () { renderStorageChip(); });
+    global.Sync.onChange(function () { renderStorageChip(); });
 
-    global.Store.boot().then(function (res) {
+    global.Store.boot().then(function (localRes) {
+      // Sync.init() returns the cloud copy when signed in, null otherwise.
+      return global.Sync.init().then(function (remote) {
+        return reconcile(localRes, remote);
+      }).catch(function () {
+        return localRes;   // cloud unreachable is not a reason to fail to start
+      });
+    }).then(function (res) {
       document.getElementById('boot').hidden = true;
       var data = res.data;
 
@@ -356,11 +434,10 @@
       var hash = location.hash.replace('#', '');
       App.go(VIEWS[hash] ? hash : 'home');
 
-      var status = global.Store.status();
-      if (status.needsPermission) {
-        UI.toast('Your data folder needs reconnecting — open Profile & data.', 'bad');
-      } else if (res.source === 'folder' || res.source === 'file') {
-        UI.toast('Loaded your history from ' + status.pathLabel + '.');
+      if (res.source === 'cloud') {
+        UI.toast('Loaded your data from your account.');
+      } else if (global.Store.status().needsPermission) {
+        UI.toast('Your backup folder needs reconnecting — open Profile & data.', 'bad');
       }
     }).catch(function (err) {
       console.error(err);

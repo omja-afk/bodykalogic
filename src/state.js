@@ -58,7 +58,8 @@
   function save() {
     if (!state) return;
     state.updatedAt = Date.now();
-    global.Store.save(state);
+    global.Store.save(state);                 // local, immediate, always
+    if (global.Sync) global.Sync.schedulePush(state);   // cloud, debounced, best-effort
     subscribers.forEach(function (fn) { try { fn(state); } catch (e) {} });
   }
 
