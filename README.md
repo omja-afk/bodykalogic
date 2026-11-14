@@ -4,8 +4,9 @@ A single-page, dependency-free web app that tracks your training, your food and 
 body composition, and keeps **all of the data on your own machine** — in a real folder
 you choose, as plain JSON you can read, back up, sync or delete yourself.
 
-No server. No account. No network calls. Open `index.html` over `http://localhost` and
-it works.
+No server. No account. No tracking. The only thing that ever touches the network is the
+text-recognition engine, downloaded once from a CDN if you choose to import a training
+plan from a photo — and even then the image is read on your own machine.
 
 ## How the "info path" works
 
@@ -37,17 +38,19 @@ then open <http://localhost:8080>.
 ## Tabs
 
 - **Dashboard** — today's session, today's meals, current weight/BMI, streak, quick log.
-- **Workout Plan** — your split. Generated from your answers, or imported from a photo
-  or a file, or written by hand. Editable exercise by exercise.
-- **Diet Plan** — a 7-day rotating meal plan built to hit your calorie and protein
-  targets, with a different menu each day. Same import flexibility.
-- **Today's Log** — log sets, reps, weight and RPE against the day's planned session.
-- **Nutrition Log** — tick off planned meals, add anything extra, watch the protein and
-  calorie totals against target.
+- **Workout plan** — your split, with a gym / home-dumbbells / bodyweight switch at the
+  top that re-equips the whole plan. Generated, imported, or written by hand.
+- **Diet plan** — seven distinct days built to your calorie and protein targets, with
+  diet and cuisine controls at the top and an alternative list on every meal.
+- **Today's session** — log sets, reps, weight and RPE against the day's planned session.
+- **Nutrition log** — tick off planned meals or log one from a photo and portions.
+- **Strength maxes** — max weight and max reps per exercise, estimated one-rep max
+  (Epley), full history, and strength curves. New bests are picked up automatically
+  from any session you mark complete.
 - **Body** — weight, body fat, and tape measurements, with BMI computed for you.
-- **Progress** — weekly weight/BMI trend, training volume, per-exercise strength curves,
-  personal records and a 12-week consistency heatmap.
-- **Profile & Data** — your measurements and goals, plus folder connection, export,
+- **Progress** — weekly weight and BMI trends, training volume, calories against
+  target, per-exercise strength curves and a 12-week consistency heatmap.
+- **Profile & data** — your measurements and goals, plus folder connection, export,
   import and reset.
 
 ## Importing an existing plan
@@ -77,6 +80,38 @@ Deadlift 4x5 100kg
 
 Anything it cannot parse is kept as a free-text note on the day rather than dropped.
 
+## Swapping anything the app suggests
+
+Nothing it recommends is fixed.
+
+**Every exercise** has a swap list, offered in three tiers — the same movement pattern
+first, then the same muscle worked a different way, then the wider muscle group. The
+library holds **488 movements**, so a slot in a full gym offers 60–120 alternatives and
+a bodyweight-only slot still offers 40+. Switching the gym/home control re-equips the
+whole plan in place, keeping the shape of the split.
+
+**Every meal** has one too, drawn from **331 templates** — 79 to 86 per meal slot before
+your preferences narrow them. Alternatives are sorted by how close they are to the
+calories of the meal they would replace, so a swap does not blow up the day.
+
+## Logging a meal
+
+Three ways into the same editable list of what was on the plate:
+
+- **A photo** — stored with the entry as a record of the meal.
+- **Household portions** — tap "2 roti", "1 katori dal", "a palm of chicken". These are
+  the units people actually measure in, mapped to grams.
+- **Typed** — "2 roti, 1 katori dal, 150g paneer, 1 glass milk" is read directly,
+  including Hindi names (dahi, anda, chawal, aloo).
+
+Macros are computed from that list, and every quantity stays editable, so a custom
+portion is one number change.
+
+**The photo is a record, not a measurement.** Nothing here is sent anywhere, so there is
+no model available to look at the picture and tell you what is on it — the protein and
+calorie figures come from the portions you confirm. The quick-tap pills are built to
+make that take a few seconds.
+
 ## Generated plans
 
 If you have no plan, the app writes one from your answers (age, sex, height, weight,
@@ -99,17 +134,21 @@ take the plan to a professional first.
 ## Layout
 
 ```
-index.html          markup and tab shells
-assets/styles.css   all styling, light + dark
-src/store.js        persistence: FS Access API, IndexedDB handle, localStorage mirror
-src/data.js         exercise library and food library
-src/plan.js         workout plan generation
-src/diet.js         calorie/macro maths and 7-day menu generation
-src/parse.js        photo/file/text import parsing
-src/charts.js       hand-rolled SVG charts
-src/ui.js           DOM helpers, toasts, modals
-src/views.js        tab renderers
-src/app.js          boot sequence, routing, onboarding
+index.html             markup and tab shells
+assets/styles.css      all styling, dark by default
+src/store.js           persistence: FS Access API, IndexedDB handle, localStorage mirror
+src/plan.js            workout plan generation and swapping
+src/diet.js            calorie/macro maths and 7-day menu generation
+src/data-exercises.js  488 movements, with the swap tiers
+src/data-foods.js      130 foods
+src/data-meals.js      331 meal templates
+src/mealphoto.js       meal photos, household portions, the typed-plate parser
+src/parse.js           photo/file/text plan import
+src/charts.js          hand-rolled SVG charts
+src/ui.js              DOM helpers, toasts, modals
+src/state.js           the data model and every mutation
+src/views*.js          tab renderers
+src/app.js             boot sequence, routing, onboarding
 ```
 
 ## Licence
