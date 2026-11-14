@@ -122,15 +122,20 @@ a  { color: var(--accent); }
 }
 
 .brand {
-  display: flex; align-items: center; gap: 10px;
-  padding: 2px 8px 18px;
+  display: flex; justify-content: center;
+  padding: 4px 6px 16px;
 }
-.brand-mark {
-  width: 34px; height: 34px; border-radius: 10px; flex: none;
-  box-shadow: 0 4px 14px rgba(57,135,229,.35);
+/* The badge carries the name and the tagline itself, so there is no text
+   lockup beside it — a second wordmark next to a wordmark reads as a mistake. */
+.brand-logo {
+  width: 100%; max-width: 168px; height: auto; display: block;
 }
-.brand-name { font-weight: 700; letter-spacing: -.025em; font-size: .97rem; }
-.brand-sub { font-size: .72rem; color: var(--ink-muted); margin-top: -2px; }
+/* The artwork ships with light ink for the dark UI; the light theme gets the
+   dark-ink file rather than a filter, so the distressed edges stay clean. */
+:root[data-theme="light"] .brand-logo {
+  content: url("wordmark-on-light.png");
+}
+
 
 .nav-item {
   display: flex; align-items: center; gap: 10px;

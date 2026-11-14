@@ -10,6 +10,19 @@ No server. No account. No tracking. The only thing that ever touches the network
 text-recognition engine, downloaded once from a CDN if you choose to import a training
 plan from a photo — and even then the image is read on your own machine.
 
+## The logo
+
+A vintage stamp badge: barbell, circular motto, `EST. 2026`. Black ink rather than
+the warm brown alternative, because the UI's accents are cool blues and violets and
+a neutral mark inverts cleanly for the dark theme instead of going muddy.
+
+It ships as two files for a reason. The badge carries circular micro-text, a star
+and a distressed speckle, and a 16px browser tab keeps none of it — reduced to
+favicon size only 18% of its pixels carry any ink, and the result is a smudge. So
+the tab icon is a separate mark drawn from what *does* survive a reduction: the
+badge's silhouette (a disc with a ring) and its centre monogram. The disc is filled
+rather than outlined so it holds up against a dark tab strip as well as a light one.
+
 ## Live
 
 <https://omja-afk.github.io/bodykalogic/> — open it on your phone and your laptop,
@@ -198,6 +211,8 @@ take the plan to a professional first.
 ```
 index.html             markup and tab shells
 assets/styles.css      all styling, dark by default
+assets/logo.svg        tab icon — the badge reduced to disc, ring and monogram
+assets/wordmark-*.png  the full badge, light ink and dark ink
 src/store.js           local cache: localStorage, export and import
 src/sync.js            accounts and cross-device sync over Supabase's REST API
 src/config.js          project URL and publishable key

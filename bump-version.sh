@@ -20,7 +20,7 @@ def stamp(m):
     if url.startswith(('http://', 'https://', '//', 'data:')):
         return m.group(0)
     return '%s="%s?v=%s"' % (attr, url.split('?')[0], v)
-s = re.sub(r'\b(src|href)="([^"]+\.(?:js|css|svg))(?:\?[^"]*)?"', stamp, s)
+s = re.sub(r'\b(src|href)="([^"]+\.(?:js|css|svg|png))(?:\?[^"]*)?"', stamp, s)
 io.open(p, 'w', encoding='utf-8').write(s)
 print('stamped assets with ?v=' + v)
 PY
