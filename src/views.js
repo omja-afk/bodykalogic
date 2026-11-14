@@ -272,11 +272,11 @@
           onclick: function () { Views.openDietImport(); } })
       ]),
       h('.card', [
-        h('h3', { text: 'Your data, on your disk' }),
+        h('h3', { text: 'On your phone and your laptop' }),
         h('p', { style: { fontSize: '.86rem', marginTop: '8px' },
-          text: 'Pick a folder once and every change is written there as plain JSON, with dated backups. ' +
-                'No account, no server, nothing to cancel.' }),
-        h('button.btn.btn-sm', { text: 'Choose where it saves',
+          text: 'Sign in with the same email on both and they show the same thing. It keeps working ' +
+                'with no signal — changes are saved on the device and go up when you reconnect.' }),
+        h('button.btn.btn-sm', { text: 'Set up syncing',
           onclick: function () { global.App.go('profile'); } })
       ])
     ]);

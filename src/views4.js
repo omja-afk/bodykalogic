@@ -600,7 +600,7 @@
         h('.spacer'),
         h('button.btn.btn-danger', { text: 'Reset everything', onclick: function () {
           UI.confirm({ title: 'Delete all your data?',
-            message: 'This clears your profile, plans, logs and records from this browser and disconnects the folder. Files already written to disk are not deleted. This cannot be undone.',
+            message: 'This clears your profile, plans, logs and records from this device. If you are signed in, the copy in your account is left alone — sign out first if you want this device wiped without touching it. Any file you exported is untouched. This cannot be undone.',
             confirmLabel: 'Delete everything', danger: true }).then(function (ok) {
             if (!ok) return;
             global.Store.wipe().then(function () {

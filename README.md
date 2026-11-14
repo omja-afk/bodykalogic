@@ -16,12 +16,15 @@ A vintage stamp badge: barbell, circular motto, `EST. 2026`. Black ink rather th
 the warm brown alternative, because the UI's accents are cool blues and violets and
 a neutral mark inverts cleanly for the dark theme instead of going muddy.
 
-It ships as two files for a reason. The badge carries circular micro-text, a star
-and a distressed speckle, and a 16px browser tab keeps none of it — reduced to
-favicon size only 18% of its pixels carry any ink, and the result is a smudge. So
-the tab icon is a separate mark drawn from what *does* survive a reduction: the
-badge's silhouette (a disc with a ring) and its centre monogram. The disc is filled
+It ships as two files for a reason. The badge carries circular micro-text and a
+distressed speckle, and a 16px browser tab keeps none of it — reduced to favicon
+size only about 18% of its pixels carry any ink, and the result is a smudge. So the
+tab icon is a separate mark drawn from what *does* survive a reduction: the badge's
+silhouette, a ringed disc with a barbell struck through it. The disc is filled
 rather than outlined so it holds up against a dark tab strip as well as a light one.
+
+`assets/src/badge-master.png` is the full-resolution artwork the two inked PNGs are
+generated from.
 
 ## Live
 
