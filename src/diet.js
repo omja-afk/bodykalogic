@@ -271,11 +271,13 @@
     prefs = Object.assign({}, prefs, { goal: profile.goal });
     var days = [];
     var pools = {};
+    // The protein share the targets demand of the day as a whole.
+    var requiredDensity = t.kcal ? (t.protein * 4) / t.kcal : 0.2;
     FD.SLOTS.forEach(function (slot) {
       var pool = FD.mealPool(slot, prefs);
       if (!pool.length) pool = FD.mealPool(slot, { dietPref: prefs.dietPref, cuisine: 'mixed', dislikes: [] });
       if (!pool.length) pool = FD.mealPool(slot, { dietPref: 'nonveg', cuisine: 'mixed', dislikes: [] });
-      pools[slot] = rankPool(pool, prefs, seedOf(prefs, slot));
+      pools[slot] = rankPool(pool, prefs, seedOf(prefs, slot), requiredDensity);
     });
 
     for (var d = 0; d < 7; d++) {
@@ -308,15 +310,33 @@
     return m.kcal ? (m.p * 4) / m.kcal : 0;
   }
 
-  /* Deal order for the week. Cutting goals get the leanest templates first, because
-   * a deficit needs protein-dense meals to be reachable at all; everything else is
-   * shuffled for variety. Either way the first seven are distinct. */
-  function rankPool(pool, prefs, seed) {
-    var shuffled = shuffle(pool, seed);
-    if (prefs.goal === 'fat_loss') {
-      return shuffled.slice().sort(function (a, b) { return templateDensity(b) - templateDensity(a); });
-    }
-    return shuffled;
+  /* Deal order for the week.
+   *
+   * The scaler can only move portions so far: a template whose protein share sits
+   * well below what the day needs will not get there by growing the dal, because
+   * the dal brings its calories with it. So templates are ranked by how far their
+   * protein share is from the share the targets require, and the week is dealt
+   * from the closest ones.
+   *
+   * Falling short is the worse error, so being under the required density is
+   * penalised at twice the rate of being over. Two earlier cuts missed on either
+   * side: a plain shuffle left Indian vegetarian plans ~20% short once the pool
+   * grew, and taking only the densest templates overshot to ~125% and crowded out
+   * the carbs. Ranking by distance lands on the number from both directions.
+   *
+   * The head of the ranking is shuffled so the same seven meals do not come back
+   * every regeneration — variety, drawn from the templates that can hit the target.
+   */
+  function rankPool(pool, prefs, seed, requiredDensity) {
+    var scored = pool.map(function (tpl) {
+      var d = templateDensity(tpl);
+      var gap = d - requiredDensity;
+      return { tpl: tpl, penalty: gap < 0 ? -gap * 2 : gap };
+    }).sort(function (a, b) { return a.penalty - b.penalty; });
+
+    var ordered = scored.map(function (x) { return x.tpl; });
+    var headSize = Math.min(ordered.length, Math.max(10, Math.ceil(ordered.length * 0.35)));
+    return shuffle(ordered.slice(0, headSize), seed).concat(ordered.slice(headSize));
   }
 
   // Deterministic shuffle, so regenerating with the same prefs is stable but the

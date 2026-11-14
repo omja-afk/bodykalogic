@@ -1,37 +1,20 @@
-/* mealphoto.js — logging a meal from a photo, or from household portions.
+/* mealphoto.js — logging a meal from a photo and from household portions.
  *
- * A static page cannot look at a photograph on its own; there is no model in the
- * browser. So this offers two honest paths and never pretends the first one
- * happened when it didn't:
+ * The photo is a record, not a measurement. Nothing in this app sends data
+ * anywhere, so there is no model available to look at the picture — the macros
+ * come from what you tell it is on the plate, and the photo is stored alongside
+ * the entry so the log shows the actual meal.
  *
- *   1. Portions (always available, offline, no key). Tap the things on the plate in
- *      the units people actually use — two rotis, a katori of dal, a palm of chicken
- *      — or type them. The macros are computed from the food library. The photo is
- *      still attached to the entry as a record of the meal.
- *
- *   2. Estimate from the photo (opt-in). If you put your own Claude API key in
- *      Profile & Data, the photo is sent to the Claude API, which returns the items
- *      and portions it can see; those land in the same editable list as path 1, so
- *      you correct anything wrong before it is saved.
- *
- * Path 2 is the only thing in this app that touches the network, and it only runs
- * when a key is present and the button is pressed.
+ * Entering the plate is built to take seconds rather than to be exhaustive: tap
+ * the household portions people actually measure in — two rotis, a katori of dal,
+ * a palm of chicken — or type the plate as a sentence and let the parser read it.
+ * Quantities are editable everywhere, so a custom portion is just a number change.
  */
 (function (global) {
   'use strict';
 
   var FD = global.FoodData;
   var DG = global.DietGen;
-
-  var API_URL = 'https://api.anthropic.com/v1/messages';
-  var API_VERSION = '2026-10-21';
-  var DEFAULT_MODEL = 'claude-opus-5-5';
-
-  var MODELS = [
-    { id: 'claude-opus-5-5',   label: 'Opus 5.5 — most accurate' },
-    { id: 'claude-sonnet-5-5', label: 'Sonnet 5.5 — faster, cheaper' },
-    { id: 'claude-haiku-5-5',  label: 'Haiku 5.5 — cheapest' }
-  ];
 
   /* Household portions. These are the units a person measures a plate in, mapped
    * to the library's grams. Quantities are a starting point, not a verdict —
@@ -189,132 +172,10 @@
     return null;
   }
 
-  /* ---------------------------------------------------- optional photo estimate */
-
-  function schema() {
-    var ids = Object.keys(FD.FOODS);
-    return {
-      type: 'object',
-      properties: {
-        items: {
-          type: 'array',
-          description: 'Every distinct food visible on the plate.',
-          items: {
-            type: 'object',
-            properties: {
-              food_id: { type: 'string', enum: ids.concat(['unknown']),
-                         description: 'Closest match from the library, or "unknown".' },
-              label: { type: 'string', description: 'What you see, in plain words.' },
-              grams: { type: 'number', description: 'Estimated cooked weight in grams, or the count for items measured in pieces (rotis, eggs, idlis).' },
-              confidence: { type: 'string', enum: ['high', 'medium', 'low'] }
-            },
-            required: ['food_id', 'label', 'grams', 'confidence'],
-            additionalProperties: false
-          }
-        },
-        notes: { type: 'string', description: 'Anything uncertain, in one short sentence.' }
-      },
-      required: ['items', 'notes'],
-      additionalProperties: false
-    };
-  }
-
-  function promptText() {
-    return [
-      'Identify every food in this photo of a meal and estimate the portion of each.',
-      '',
-      'Return grams of cooked weight, except for foods counted in pieces — rotis,',
-      'parathas, eggs, idlis, dosas, bread slices, bananas — where you return the',
-      'count instead. Use ordinary serving sizes as a reference: one roti is about',
-      '40 g, a katori of dal or sabzi about 150 g, a palm of chicken about 100 g.',
-      '',
-      'Match each item to the closest food_id in the schema. Use "unknown" only when',
-      'nothing is close. Estimate conservatively and mark anything you are unsure of',
-      'as low confidence — the person will check your numbers before saving them.'
-    ].join('\n');
-  }
-
-  /* The only network call in this app. Returns items shaped like the portion list
-   * so both paths feed the same editor. */
-  function estimateFromPhoto(photo, settings) {
-    var key = settings && settings.apiKey;
-    if (!key) {
-      return Promise.reject(new Error(
-        'No API key saved. Add one in Profile & Data to estimate from a photo, or enter the portions yourself.'
-      ));
-    }
-
-    var body = {
-      model: (settings.model || DEFAULT_MODEL),
-      max_tokens: 2000,
-      output_config: {
-        effort: 'low',
-        format: { type: 'json_schema', schema: schema() }
-      },
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: photo.mediaType, data: photo.base64 } },
-          { type: 'text', text: promptText() }
-        ]
-      }]
-    };
-
-    return fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': API_VERSION,
-        // Required for a request made straight from a page rather than a server.
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify(body)
-    }).then(function (res) {
-      return res.text().then(function (txt) {
-        if (!res.ok) {
-          var msg = txt;
-          try { msg = (JSON.parse(txt).error || {}).message || txt; } catch (e) {}
-          throw new Error('Claude API ' + res.status + ': ' + msg);
-        }
-        return JSON.parse(txt);
-      });
-    }).then(function (data) {
-      if (data.stop_reason === 'refusal') {
-        throw new Error('The request was declined by the API. Enter the portions yourself.');
-      }
-      var textBlock = (data.content || []).filter(function (b) { return b.type === 'text'; })[0];
-      if (!textBlock) throw new Error('The API returned no readable result.');
-      var parsed = JSON.parse(textBlock.text);
-
-      var items = [], skipped = [];
-      (parsed.items || []).forEach(function (it) {
-        var f = FD.food(it.food_id);
-        if (!f || it.food_id === 'unknown') { skipped.push(it.label || it.food_id); return; }
-        items.push({
-          food: it.food_id,
-          qty: DG.roundQty(it.food_id, Number(it.grams) || 0),
-          confidence: it.confidence,
-          label: it.label
-        });
-      });
-
-      return {
-        items: items,
-        skipped: skipped,
-        notes: parsed.notes || '',
-        usage: data.usage || null
-      };
-    });
-  }
-
   global.MealPhoto = {
     QUICK: QUICK,
-    MODELS: MODELS,
-    DEFAULT_MODEL: DEFAULT_MODEL,
     readPhoto: readPhoto,
     parsePortions: parsePortions,
-    estimateFromPhoto: estimateFromPhoto,
     macrosFor: function (items) { return DG.roundMacros(DG.sumMacros(items)); }
   };
 
