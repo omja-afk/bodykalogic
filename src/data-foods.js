@@ -94,7 +94,77 @@
     ['chutney',   'Coconut chutney',       'g',  50,  97,  1.5, 4.5,  8.0, 0, 'in'],
     ['sambar',    'Sambar',                'ml',200, 139,  6.5, 20.0, 3.5, 0, 'in'],
     ['hummus',    'Hummus',                'g',  60, 100,  4.8, 8.5,  5.8, 0, 'gl'],
-    ['rasam',     'Rasam',                 'ml',200,  70,  3.0, 10.0, 2.0, 0, 'in']
+    ['rasam',     'Rasam',                 'ml',200,  70,  3.0, 10.0, 2.0, 0, 'in'],
+
+    // --- extra protein
+    ['wheyiso',   'Whey isolate scoop',    'piece',1,110, 26,   1.0,  0.5, 1, 'both'],
+    ['casein',    'Casein scoop',          'piece',1,120, 24,   3.0,  1.0, 1, 'both'],
+    ['cottage',   'Cottage cheese',        'g', 100,  98, 11.0, 3.4,  4.3, 1, 'gl'],
+    ['seitan',    'Seitan',                'g', 100, 141, 25.0, 14.0, 1.9, 0, 'gl'],
+    ['edamame',   'Edamame',               'g', 150, 185, 16.5, 14.0, 8.0, 0, 'gl'],
+    ['turkey',    'Turkey breast',         'g', 100, 135, 29.0, 0,    1.7, 3, 'gl'],
+    ['beef',      'Lean beef',             'g', 100, 217, 26.0, 0,   12.0, 3, 'gl'],
+    ['squid',     'Squid / calamari',      'g', 100,  92, 15.6, 3.1,  1.4, 3, 'gl'],
+    ['sardine',   'Sardines',              'g', 100, 208, 25.0, 0,   11.5, 3, 'gl'],
+    ['eggcurryb', 'Egg (boiled, large)',   'piece',1, 78,  6.3, 0.6,  5.3, 2, 'both'],
+    ['besan',     'Besan (gram flour)',    'g',  60, 230, 12.5, 36.0, 3.6, 0, 'in'],
+    ['moongdal',  'Moong dal (cooked)',    'g', 200, 212, 14.2, 36.0, 0.8, 0, 'in'],
+    ['chanadal',  'Chana dal (cooked)',    'g', 200, 240, 13.0, 40.0, 2.4, 0, 'in'],
+    ['kadhi',     'Kadhi',                 'ml',200, 150,  6.0, 14.0, 7.5, 1, 'in'],
+    ['lassi',     'Salted lassi / chaas',  'ml',250, 100,  5.5, 8.0,  5.0, 1, 'in'],
+    ['makhana',   'Roasted makhana',       'g',  30, 105,  3.0, 23.0, 0.3, 0, 'in'],
+    ['peanutchat','Peanut chaat',          'g', 100, 320, 15.0, 16.0, 22.0,0, 'in'],
+
+    // --- extra grains and starches
+    ['pulao',     'Vegetable pulao',       'g', 200, 290,  6.0, 48.0, 8.0, 0, 'in'],
+    ['biryanir',  'Biryani rice',          'g', 200, 320,  7.0, 50.0, 9.5, 0, 'in'],
+    ['chilla',    'Besan chilla',          'piece',1,120,  6.0, 14.0, 4.5, 0, 'in'],
+    ['moongchil', 'Moong dal chilla',      'piece',1,110,  7.0, 14.0, 2.5, 0, 'in'],
+    ['dhokla',    'Dhokla',                'g', 150, 240, 10.0, 34.0, 6.5, 0, 'in'],
+    ['uttapam',   'Uttapam',               'piece',1,160,  4.0, 26.0, 4.5, 0, 'in'],
+    ['appam',     'Appam',                 'piece',1,120,  2.5, 24.0, 1.5, 0, 'in'],
+    ['thepla',    'Methi thepla',          'piece',1,130,  3.5, 18.0, 5.0, 0, 'in'],
+    ['khakhra',   'Khakhra',               'piece',1, 65,  2.0, 11.0, 1.5, 0, 'in'],
+    ['couscous',  'Couscous (cooked)',     'g', 150, 168,  5.6, 35.0, 0.3, 0, 'gl'],
+    ['bulgur',    'Bulgur (cooked)',       'g', 150, 125,  4.5, 27.0, 0.4, 0, 'gl'],
+    ['granola',   'Granola',               'g',  50, 215,  5.0, 33.0, 7.0, 1, 'gl'],
+    ['ricecake',  'Rice cakes',            'piece',1, 35,  0.7, 7.3,  0.3, 0, 'gl'],
+    ['tortilla',  'Wholewheat tortilla',   'piece',1,140,  5.0, 23.0, 3.5, 0, 'gl'],
+    ['noodles',   'Wholewheat noodles',    'g', 150, 190,  7.0, 38.0, 1.2, 0, 'gl'],
+    ['millet',    'Bajra / jowar roti',    'piece',1, 97,  2.8, 19.0, 1.0, 0, 'in'],
+    ['curdrice',  'Curd rice',             'g', 250, 290,  8.5, 42.0, 9.0, 1, 'in'],
+
+    // --- extra vegetables
+    ['lauki',     'Lauki sabzi',           'g', 150,  85,  2.0, 9.0,  4.5, 0, 'in'],
+    ['baingan',   'Baingan bharta',        'g', 150, 130,  2.5, 12.0, 8.0, 0, 'in'],
+    ['methi',     'Methi sabzi',           'g', 150, 100,  4.0, 9.0,  5.5, 0, 'in'],
+    ['gobhi',     'Gobhi / cauliflower',   'g', 150, 105,  3.5, 10.0, 6.0, 0, 'in'],
+    ['beans',     'French beans',          'g', 150,  90,  3.0, 10.0, 4.5, 0, 'both'],
+    ['mushroom',  'Mushrooms',             'g', 150,  52,  5.0, 5.0,  1.5, 0, 'both'],
+    ['capsicum',  'Capsicum & onion',      'g', 150,  70,  2.0, 10.0, 2.5, 0, 'both'],
+    ['zucchini',  'Grilled zucchini',      'g', 150,  60,  2.2, 7.0,  2.8, 0, 'gl'],
+    ['asparagus', 'Asparagus',             'g', 150,  48,  3.3, 6.0,  1.2, 0, 'gl'],
+    ['kale',      'Kale salad',            'g', 150,  73,  4.3, 10.0, 1.5, 0, 'gl'],
+    ['coleslaw',  'Cabbage slaw',          'g', 150,  85,  1.8, 9.0,  4.5, 0, 'gl'],
+
+    // --- extra fruit and fats
+    ['mango',     'Mango',                 'g', 150,  90,  1.2, 22.0, 0.6, 0, 'in'],
+    ['guava',     'Guava',                 'piece',1, 68,  2.6, 14.0, 1.0, 0, 'in'],
+    ['pomegran',  'Pomegranate',           'g', 150, 125,  2.5, 28.0, 1.8, 0, 'in'],
+    ['grapes',    'Grapes',                'g', 150, 104,  1.1, 27.0, 0.2, 0, 'both'],
+    ['watermelon','Watermelon',            'g', 200,  60,  1.2, 15.0, 0.3, 0, 'both'],
+    ['dates',     'Dates',                 'g',  40, 110,  0.9, 30.0, 0.2, 0, 'both'],
+    ['cashew',    'Cashews',               'g',  25, 138,  4.6, 7.6, 11.0, 0, 'both'],
+    ['flax',      'Flax seeds',            'g',  15,  80,  2.8, 4.3,  6.3, 0, 'both'],
+    ['coconut',   'Fresh coconut',         'g',  30, 107,  1.0, 4.6, 10.1, 0, 'in'],
+    ['butter',    'Butter',                'tbsp',1,102,  0.1, 0,   11.5, 1, 'both'],
+    ['mayo',      'Light mayonnaise',      'tbsp',1, 45,  0.1, 1.0,  4.5, 2, 'gl'],
+    ['pesto',     'Pesto',                 'tbsp',1, 80,  1.5, 1.0,  8.0, 1, 'gl'],
+    ['tahini',    'Tahini',                'tbsp',1, 89,  2.6, 3.2,  8.0, 0, 'gl'],
+    ['tomato',    'Tomato gravy base',     'g', 100,  70,  1.5, 8.0,  3.8, 0, 'in'],
+    ['pickle',    'Pickle',                'g',  15,  30,  0.2, 1.0,  2.8, 0, 'in'],
+    ['proteinbar','Protein bar',           'piece',1,200, 20.0, 20.0, 6.0, 1, 'gl'],
+    ['darkchoc',  'Dark chocolate',        'g',  20, 120,  1.6, 9.0,  8.6, 1, 'gl']
   ];
 
   var FOODS = {};
@@ -104,110 +174,6 @@
       kcal: r[4], p: r[5], c: r[6], f: r[7],
       diet: r[8], cuisine: r[9]
     };
-  });
-
-  /* Meal templates.
-   * id, title, slot, cuisine, items[]  — each item [foodId, qty, scalable]
-   * `scalable` marks the portion the generator is allowed to grow or shrink to hit
-   * the day's targets. Fixed items (one egg, one tbsp of ghee) stay put so the
-   * output still reads like a meal a person would actually cook.
-   */
-  var M = [
-    // ---------------- breakfast
-    ['b_oats',    'Oats with milk, banana & peanut butter', 'breakfast','both', [['oats',50,1],['milk',200,1],['banana',1,0],['pb',1,0]]],
-    ['b_poha',    'Poha with peanuts & sprouts',            'breakfast','in',   [['poha',70,1],['peanut',30,0],['sprouts',100,1],['oil',1,0]]],
-    ['b_upma',    'Vegetable upma with curd',               'breakfast','in',   [['upma',60,1],['mixveg',100,1],['curd',150,1],['oil',1,0]]],
-    ['b_idli',    'Idli with sambar & chutney',             'breakfast','in',   [['idli',4,1],['sambar',200,1],['chutney',50,0]]],
-    ['b_paneer',  'Paneer bhurji with roti',                'breakfast','in',   [['lowfatpan',150,1],['roti',2,1],['oil',1,0],['cucumber',150,0]]],
-    ['b_egg',     'Egg bhurji with toast',                  'breakfast','both', [['egg',3,1],['bread',2,1],['oil',1,0],['cucumber',150,0]]],
-    ['b_omelette','Omelette with vegetables & avocado',     'breakfast','gl',   [['egg',3,1],['eggwhite',2,1],['veggiestir',150,1],['avocado',50,0]]],
-    ['b_yog',     'Greek yoghurt, berries & seeds',         'breakfast','gl',   [['greekyog',200,1],['berries',100,1],['seeds',20,0],['honey',1,0]]],
-    ['b_dosa',    'Dosa with sambar',                       'breakfast','in',   [['dosa',2,1],['sambar',200,1],['chutney',50,0]]],
-    ['b_daliya',  'Daliya with milk & almonds',             'breakfast','in',   [['daliya',60,1],['milk',200,1],['almond',25,0]]],
-    ['b_shake',   'Whey shake with oats & banana',          'breakfast','both', [['whey',1,0],['oats',40,1],['milk',200,1],['banana',1,0]]],
-    ['b_tofu',    'Tofu scramble with toast',               'breakfast','gl',   [['tofu',150,1],['bread',2,1],['olive',1,0],['salad',150,0]]],
-    ['b_parcurd', 'Paratha with curd',                      'breakfast','in',   [['paratha',2,1],['curd',200,1],['cucumber',150,0]]],
-    ['b_soyoats', 'Overnight oats with soy milk & berries',  'breakfast','both', [['oats',60,1],['soymilk',200,1],['berries',100,1],['seeds',20,0]]],
-    ['b_soyabhur','Soya bhurji with toast',                  'breakfast','both', [['soyachunk',50,1],['bread',2,1],['oil',1,0],['cucumber',150,0]]],
-    ['b_pbshake', 'Peanut butter & banana shake',            'breakfast','both', [['soymilk',250,1],['pb',2,0],['banana',1,0],['oats',40,1]]],
-    ['b_eggwhite','Egg white scramble with vegetables',       'breakfast','both', [['eggwhite',6,1],['egg',1,0],['veggiestir',150,1],['oil',1,0]]],
-    ['b_curdspr', 'Curd with sprouts & seeds',                'breakfast','in',   [['curd',250,1],['sprouts',150,1],['seeds',20,0]]],
-
-    // ---------------- lunch
-    ['l_chicken', 'Chicken curry, rice & salad',            'lunch','in',   [['chicken',180,1],['rice',200,1],['salad',150,0],['oil',1,0]]],
-    ['l_dalrice', 'Dal, rice, sabzi & curd',                'lunch','in',   [['dal',200,1],['rice',180,1],['mixveg',150,1],['curd',100,0]]],
-    ['l_rajma',   'Rajma chawal with salad',                'lunch','in',   [['rajma',200,1],['rice',180,1],['salad',150,0],['ghee',1,0]]],
-    ['l_paneer',  'Paneer sabzi with roti',                 'lunch','in',   [['lowfatpan',150,1],['roti',3,1],['palak',150,1],['oil',1,0]]],
-    ['l_fish',    'Fish curry with rice',                   'lunch','in',   [['fish',180,1],['rice',200,1],['bhindi',150,1],['oil',1,0]]],
-    ['l_chole',   'Chole with brown rice',                  'lunch','in',   [['chana',200,1],['brownrice',180,1],['cucumber',150,0],['oil',1,0]]],
-    ['l_grillch', 'Grilled chicken, quinoa & broccoli',     'lunch','gl',   [['chicken',180,1],['quinoa',150,1],['broccoli',150,1],['olive',1,0]]],
-    ['l_tuna',    'Tuna pasta with vegetables',             'lunch','gl',   [['tuna',120,1],['pasta',150,1],['veggiestir',150,1],['olive',1,0]]],
-    ['l_soya',    'Soya chunk curry with rice',             'lunch','in',   [['soyachunk',50,1],['rice',180,1],['mixveg',150,1],['oil',1,0]]],
-    ['l_bowl',    'Black bean & quinoa bowl',               'lunch','gl',   [['blackbean',150,1],['quinoa',150,1],['salad',150,0],['avocado',50,0]]],
-    ['l_mutton',  'Mutton curry with roti',                 'lunch','in',   [['mutton',150,1],['roti',3,1],['salad',150,0]]],
-    ['l_tofu',    'Tofu stir-fry with brown rice',          'lunch','gl',   [['tofu',180,1],['brownrice',180,1],['veggiestir',200,1],['olive',1,0]]],
-    ['l_sprout',  'Sprout salad with roti & curd',          'lunch','in',   [['sprouts',150,1],['roti',3,1],['curd',150,1],['oil',1,0]]],
-    ['l_tempeh',  'Tempeh bowl with quinoa & greens',       'lunch','gl',   [['tempeh',150,1],['quinoa',150,1],['broccoli',150,1],['olive',1,0]]],
-    ['l_dalroti', 'Dal with roti & salad',                  'lunch','both', [['dal',200,1],['roti',3,1],['salad',150,0],['oil',1,0]]],
-    ['l_soyapas', 'Soya pasta with vegetables',             'lunch','gl',   [['soyachunk',50,1],['pasta',150,1],['veggiestir',150,1],['olive',1,0]]],
-    ['l_chsalad', 'Grilled chicken salad bowl',             'lunch','both', [['chicken',200,1],['salad',200,1],['cucumber',150,0],['olive',1,0]]],
-    ['l_pansalad','Paneer tikka salad',                     'lunch','in',   [['lowfatpan',180,1],['salad',200,1],['cucumber',150,0],['oil',1,0]]],
-    ['l_dalsalad','Dal with a large salad',                 'lunch','both', [['dal',250,1],['salad',200,1],['cucumber',150,0],['oil',1,0]]],
-    ['l_soyasal', 'Soya chunk & sprout salad',             'lunch','both', [['soyachunk',60,1],['sprouts',150,1],['salad',200,1],['oil',1,0]]],
-
-    // ---------------- snack
-    ['s_shake',   'Whey shake with milk',                   'snack','both', [['whey',1,0],['milk',200,1]]],
-    ['s_sprouts', 'Sprout chaat',                           'snack','in',   [['sprouts',150,1],['cucumber',150,0]]],
-    ['s_curdfr',  'Curd with fruit',                        'snack','in',   [['curd',200,1],['papaya',150,1]]],
-    ['s_nuts',    'Peanuts & an apple',                     'snack','both', [['peanut',30,1],['apple',1,0]]],
-    ['s_eggs',    'Boiled eggs',                            'snack','both', [['egg',3,1],['cucumber',150,0]]],
-    ['s_pbtoast', 'Peanut butter toast',                    'snack','both', [['bread',2,1],['pb',1,0],['banana',1,0]]],
-    ['s_hummus',  'Hummus with vegetable sticks',           'snack','gl',   [['hummus',60,1],['salad',150,1]]],
-    ['s_paneer',  'Roasted paneer cubes',                   'snack','in',   [['lowfatpan',100,1],['cucumber',150,0]]],
-    ['s_yogseed', 'Greek yoghurt with seeds',               'snack','gl',   [['greekyog',150,1],['seeds',20,0]]],
-    ['s_chana',   'Roasted chana & orange',                 'snack','in',   [['chana',100,1],['orange',1,0]]],
-    ['s_almond',  'Almonds & walnuts',                      'snack','both', [['almond',25,1],['walnut',25,0]]],
-    ['s_tofu',    'Tofu bites with salad',                  'snack','gl',   [['tofu',120,1],['salad',150,0]]],
-    ['s_soyshake','Soy milk & peanut butter shake',         'snack','both', [['soymilk',250,1],['pb',1,0]]],
-    ['s_peacurd', 'Peanut curd with fruit',                 'snack','both', [['peanutcurd',150,1],['apple',1,0]]],
-    ['s_wheyw',   'Whey shake with water',                  'snack','both', [['whey',1,1]]],
-    ['s_eggwhite','Boiled egg whites',                      'snack','both', [['eggwhite',6,1],['cucumber',150,0]]],
-    ['s_soyasal', 'Soya chunk salad',                       'snack','both', [['soyachunk',40,1],['salad',150,1],['cucumber',150,0]]],
-    ['s_tempeh',  'Tempeh bites',                           'snack','gl',   [['tempeh',100,1],['salad',150,0]]],
-
-    // ---------------- dinner
-    ['d_rotisab', 'Roti, dal & sabzi',                      'dinner','in',   [['roti',3,1],['dal',200,1],['mixveg',150,1],['ghee',1,0]]],
-    ['d_chicken', 'Grilled chicken with sautéed vegetables','dinner','both', [['chicken',180,1],['veggiestir',200,1],['olive',1,0]]],
-    ['d_paneer',  'Palak paneer with roti',                 'dinner','in',   [['lowfatpan',150,1],['palak',150,1],['roti',2,1],['oil',1,0]]],
-    ['d_fish',    'Baked fish with sweet potato',           'dinner','gl',   [['fish',180,1],['sweetpot',150,1],['broccoli',150,1],['olive',1,0]]],
-    ['d_khich',   'Moong dal khichdi with curd',            'dinner','in',   [['dal',200,1],['rice',150,1],['curd',150,1],['ghee',1,0]]],
-    ['d_eggcur',  'Egg curry with roti',                    'dinner','in',   [['egg',3,1],['roti',3,1],['mixveg',150,1],['oil',1,0]]],
-    ['d_soup',    'Lentil soup with bread & salad',         'dinner','gl',   [['lentilsoup',300,1],['bread',2,1],['salad',150,0]]],
-    ['d_prawn',   'Prawn stir-fry with rice',               'dinner','both', [['prawn',180,1],['rice',150,1],['veggiestir',150,1],['oil',1,0]]],
-    ['d_tofu',    'Tofu curry with roti',                   'dinner','in',   [['tofu',180,1],['roti',3,1],['palak',150,1],['oil',1,0]]],
-    ['d_chickpas','Chicken pasta with salad',               'dinner','gl',   [['chicken',150,1],['pasta',150,1],['salad',150,0],['olive',1,0]]],
-    ['d_rasam',   'Rasam, rice & sprout poriyal',           'dinner','in',   [['rasam',200,1],['rice',150,1],['sprouts',150,1],['oil',1,0]]],
-    ['d_salmon',  'Salmon with quinoa & greens',            'dinner','gl',   [['salmon',150,1],['quinoa',150,1],['broccoli',150,1]]],
-    ['d_soya',    'Soya keema with roti',                   'dinner','in',   [['soyachunk',50,1],['roti',3,1],['salad',150,0],['oil',1,0]]],
-    ['d_tempeh',  'Tempeh stir-fry with brown rice',        'dinner','gl',   [['tempeh',150,1],['brownrice',150,1],['veggiestir',150,1],['olive',1,0]]],
-    ['d_chanab',  'Chickpea & vegetable bowl',              'dinner','both', [['chana',200,1],['veggiestir',200,1],['salad',150,0],['olive',1,0]]],
-    ['d_chsoup',  'Chicken & vegetable soup',               'dinner','both', [['chicken',180,1],['veggiestir',200,1],['oil',1,0]]],
-    ['d_pansalad','Paneer & sprout salad',                  'dinner','in',   [['lowfatpan',150,1],['sprouts',150,1],['cucumber',150,0],['oil',1,0]]],
-    ['d_tofusal', 'Tofu & greens salad',                    'dinner','gl',   [['tofu',180,1],['salad',200,1],['broccoli',150,1],['olive',1,0]]],
-    ['d_eggwhite','Egg white omelette with salad',          'dinner','both', [['eggwhite',6,1],['egg',1,0],['salad',200,1],['olive',1,0]]]
-  ];
-
-  var MEALS = M.map(function (r) {
-    var items = r[4].map(function (it) {
-      return { food: it[0], qty: it[1], scalable: !!it[2] };
-    });
-    // A template is only as permissive as its most restrictive-to-serve ingredient:
-    // the highest diet level any item requires.
-    var diet = items.reduce(function (acc, it) {
-      var f = FOODS[it.food];
-      return f ? Math.max(acc, f.diet) : acc;
-    }, 0);
-    return { id: r[0], title: r[1], slot: r[2], cuisine: r[3], diet: diet, items: items };
   });
 
   var DIET_PREFS = [
@@ -233,35 +199,16 @@
     return c ? c.accepts : ['in', 'gl', 'both'];
   }
 
-  /* Every template the user's preferences allow, for one slot. This is both the
-   * generator's pick list and the "suggest an alternative" pool. */
-  function mealPool(slot, prefs) {
-    var lvl = dietLevel(prefs.dietPref);
-    var acc = cuisineAccepts(prefs.cuisine);
-    var dislikes = prefs.dislikes || [];
-    return MEALS.filter(function (m) {
-      if (m.slot !== slot) return false;
-      if (m.diet > lvl) return false;
-      if (acc.indexOf(m.cuisine) === -1) return false;
-      if (dislikes.some(function (d) {
-        return m.items.some(function (it) { return it.food === d; });
-      })) return false;
-      return true;
-    });
-  }
-
   global.FoodData = {
     FOODS: FOODS,
-    MEALS: MEALS,
     DIET_PREFS: DIET_PREFS,
     CUISINES: CUISINES,
     SLOTS: ['breakfast', 'lunch', 'snack', 'dinner'],
     SLOT_LABEL: { breakfast: 'Breakfast', lunch: 'Lunch', snack: 'Snack', dinner: 'Dinner' },
     dietLevel: dietLevel,
     cuisineAccepts: cuisineAccepts,
-    mealPool: mealPool,
-    food: function (id) { return FOODS[id] || null; },
-    meal: function (id) { return MEALS.filter(function (m) { return m.id === id; })[0] || null; }
+    food: function (id) { return FOODS[id] || null; }
+    // MEALS, mealPool and meal() are attached by data-meals.js.
   };
 
 }(window));
