@@ -102,10 +102,10 @@
       h('.card-head', { style: { marginBottom: '6px' } }, [
         h('div', [
           h('.stat-label', { text: ready ? 'Overview' : 'Welcome' }),
-          h('h2', { text: ready ? greeting + (p.name ? ', ' + p.name : '') : 'Welcome to Forge' }),
+          h('h2', { text: ready ? greeting + (p.name ? ', ' + p.name : '') : 'Welcome to BodyKaLogic' }),
           h('p', { style: { margin: '6px 0 0' }, text: ready
             ? UI.prettyDate(UI.todayKey()) + ' · ' + S.streak() + ' day streak'
-            : 'A gym and diet tracker that keeps everything on your own machine. Nothing is sent anywhere, and there is no account to make.' })
+            : 'Fitness backed by data, not guesswork. It works out your numbers from your body and your goal, shows how it got there, and tracks whether they are working.' })
         ]),
         h('.spacer'),
         ready && goal ? h('span.chip.chip-accent', { text: goal }) : null
@@ -713,7 +713,7 @@
         ]),
         h('.day-card', [
           h('h4', { text: '📄 From a file' }),
-          h('p', { style: { fontSize: '.82rem' }, text: 'A Forge export, or a plain .txt / .md / .csv roughly in the shape of a plan.' }),
+          h('p', { style: { fontSize: '.82rem' }, text: 'A BodyKaLogic export, or a plain .txt / .md / .csv roughly in the shape of a plan.' }),
           h('button.btn.btn-sm', { text: 'Import from file', onclick: function () { Views.openPlanImport('file'); } })
         ]),
         h('.day-card', [

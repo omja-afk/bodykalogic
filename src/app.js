@@ -96,8 +96,8 @@
 
     var STEPS = [
       {
-        title: 'Welcome to Forge',
-        intro: 'A gym and diet tracker that keeps everything on your own machine. No account, no server — your data is a JSON file in a folder you choose.',
+        title: 'Welcome to BodyKaLogic',
+        intro: 'Fitness backed by data, not guesswork. Track your training, your food and your body, and keep it in sync across your phone and laptop.',
         fields: function () {
           return [
             h('.field', [h('label', { text: 'What should I call you?' }),
@@ -237,7 +237,7 @@
       },
       {
         title: 'Where should your data live?',
-        intro: 'Pick a folder and Forge writes gymtrack-data.json into it, plus a dated snapshot in backups/. Re-opening this page finds that folder again and loads your history. You can skip this and stay in browser storage, but a folder is the safer home.',
+        intro: 'Pick a folder and BodyKaLogic writes bodykalogic-data.json into it, plus a dated snapshot in backups/. Re-opening this page finds that folder again and loads your history. You can skip this and stay in browser storage, but a folder is the safer home.',
         fields: function () {
           var st = global.Store.status();
           var out = [];

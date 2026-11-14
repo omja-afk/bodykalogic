@@ -188,7 +188,7 @@
         ]),
         h('.day-card', [
           h('h4', { text: '📄 From a file' }),
-          h('p', { style: { fontSize: '.82rem' }, text: 'A Forge export, or a plain text file with lines like "Breakfast: 3 eggs, 2 toast".' }),
+          h('p', { style: { fontSize: '.82rem' }, text: 'A BodyKaLogic export, or a plain text file with lines like "Breakfast: 3 eggs, 2 toast".' }),
           h('button.btn.btn-sm', { text: 'Import from file', onclick: function () { Views.openDietImport('file'); } })
         ]),
         h('.day-card', [

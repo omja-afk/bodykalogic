@@ -16,10 +16,10 @@
 (function (global) {
   'use strict';
 
-  var DATA_FILE = 'gymtrack-data.json';
-  var LS_KEY = 'forge.mirror.v1';
-  var LS_TIER = 'forge.tier.v1';
-  var IDB_NAME = 'forge-fs';
+  var DATA_FILE = 'bodykalogic-data.json';
+  var LS_KEY = 'bkl.mirror.v1';
+  var LS_TIER = 'bkl.tier.v1';
+  var IDB_NAME = 'bkl-fs';
   var IDB_STORE = 'handles';
 
   var state = {
@@ -110,6 +110,8 @@
   function mirrorRead() {
     try {
       var raw = global.localStorage.getItem(LS_KEY);
+      // Anything written before the rename still deserves to be found.
+      if (!raw) raw = global.localStorage.getItem('forge.mirror.v1');
       return raw ? JSON.parse(raw) : null;
     } catch (e) { return null; }
   }
@@ -165,7 +167,7 @@
     var day = new Date().toISOString().slice(0, 10);
     return handle.getDirectoryHandle('backups', { create: true })
       .then(function (dir) {
-        return dir.getFileHandle('gymtrack-' + day + '.json', { create: true });
+        return dir.getFileHandle('bodykalogic-' + day + '.json', { create: true });
       })
       .then(function (fh) { return fh.createWritable(); })
       .then(function (w) {
@@ -266,10 +268,10 @@
       var picker;
 
       if (cap === 'folder') {
-        picker = global.showDirectoryPicker({ id: 'forge-data', mode: 'readwrite', startIn: 'documents' });
+        picker = global.showDirectoryPicker({ id: 'bkl-data', mode: 'readwrite', startIn: 'documents' });
       } else if (cap === 'file') {
         picker = global.showSaveFilePicker({
-          id: 'forge-data',
+          id: 'bkl-data',
           suggestedName: DATA_FILE,
           types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
         });
@@ -350,7 +352,7 @@
       var url = URL.createObjectURL(blob);
       var a = document.createElement('a');
       a.href = url;
-      a.download = filename || ('gymtrack-' + new Date().toISOString().slice(0, 10) + '.json');
+      a.download = filename || ('bodykalogic-' + new Date().toISOString().slice(0, 10) + '.json');
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

@@ -3,25 +3,27 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Forge — gym &amp; diet tracker</title>
-<meta name="description" content="A private gym, diet and body-composition tracker that keeps all of its data in a folder on your own machine.">
+<title>BodyKaLogic — fitness backed by data</title>
+<meta name="description" content="BodyKaLogic — fitness backed by data, not guesswork. Track training, food and body composition, and sync it across your devices.">
 <link rel="stylesheet" href="assets/styles.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233987e5'/><text x='16' y='23' font-size='19' font-family='system-ui' font-weight='700' fill='white' text-anchor='middle'>F</text></svg>">
+<link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+<link rel="apple-touch-icon" href="assets/logo.svg">
+<meta name="theme-color" content="#0b0c0f">
 </head>
 <body>
 
 <div id="boot" class="empty-state" style="padding-top:22vh">
   <h3>Loading your data…</h3>
-  <p>Looking for a connected data folder.</p>
+  <p>Checking where your data is.</p>
 </div>
 
 <div class="app" id="app" hidden>
   <nav class="sidebar">
     <div class="brand">
-      <div class="brand-mark">F</div>
+      <img class="brand-mark" src="assets/logo.svg" alt="" width="34" height="34">
       <div>
-        <div class="brand-name">Forge</div>
-        <div class="brand-sub">gym &amp; diet tracker</div>
+        <div class="brand-name">BodyKaLogic</div>
+        <div class="brand-sub">backed by data</div>
       </div>
     </div>
     <button class="nav-item" data-view="home"><span class="nav-icon">◆</span> Home</button>

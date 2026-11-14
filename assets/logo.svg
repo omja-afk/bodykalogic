@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="BodyKaLogic">
+  <title>BodyKaLogic</title>
+  <defs>
+    <linearGradient id="bklG" x1="0" y1="48" x2="48" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2f6fc4"/>
+      <stop offset="0.55" stop-color="#3987e5"/>
+      <stop offset="1" stop-color="#9085e9"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="48" height="48" rx="12" fill="url(#bklG)"/>
+
+  <!-- A dumbbell tilted upward, so the bar doubles as a rising trend line: the
+       body, read as data. The plates run perpendicular to the bar and are kept
+       short and thick — drawn thin they read as a bone rather than a weight.
+       Three strokes and nothing else, which is what keeps it legible at 16px —
+       an earlier version added dots for "data" and they collided with the plates
+       and disappeared at favicon size. -->
+  <g stroke="#fff" stroke-linecap="round" fill="none">
+    <path d="M15.5 32.5 L32.5 15.5" stroke-width="3.4"/>
+    <path d="M12.2 32.2 L15.8 35.8" stroke-width="7.2"/>
+    <path d="M32.2 12.2 L35.8 15.8" stroke-width="7.2"/>
+  </g>
+
+</svg>

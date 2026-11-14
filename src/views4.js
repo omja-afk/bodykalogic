@@ -326,7 +326,7 @@
             if (existing && existing.schema) {
               UI.confirm({
                 title: 'That folder already has data',
-                message: 'It holds a Forge data file. Load it and replace what is open, or keep what is open and overwrite the folder on the next save?',
+                message: 'It holds a BodyKaLogic data file. Load it and replace what is open, or keep what is open and overwrite the folder on the next save?',
                 confirmLabel: 'Load the folder’s data', cancelLabel: 'Keep what is open'
               }).then(function (load) {
                 if (load) { S.set(S.normalise(existing)); }

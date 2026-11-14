@@ -1,8 +1,10 @@
-# Forge — gym & diet tracker
+# BodyKaLogic
+
+**Fitness backed by data, not guesswork.**
 
 A single-page, dependency-free web app that tracks your training, your food and your
-body composition, and keeps **all of the data on your own machine** — in a real folder
-you choose, as plain JSON you can read, back up, sync or delete yourself.
+body composition. It works your numbers out from your body and your goal, shows how it
+got there, and tracks whether they are actually working.
 
 No server. No account. No tracking. The only thing that ever touches the network is the
 text-recognition engine, downloaded once from a CDN if you choose to import a training
@@ -11,14 +13,14 @@ plan from a photo — and even then the image is read on your own machine.
 ## How the "info path" works
 
 On first load the app looks for a previously connected data folder. If it finds one it
-reads `gymtrack-data.json` out of it and you carry on where you left off. If it does not,
+reads `bodykalogic-data.json` out of it and you carry on where you left off. If it does not,
 it treats you as a new user and runs the onboarding questionnaire.
 
 Three storage tiers, picked automatically by what the browser supports:
 
 | Tier | Requires | Behaviour |
 |---|---|---|
-| **Folder** | `showDirectoryPicker` (Chrome, Edge, Arc, Brave) | You pick a real folder once. Every change is written to `<folder>/gymtrack-data.json`, plus a dated snapshot in `<folder>/backups/`. The folder handle is remembered in IndexedDB, so re-opening the site reconnects to the same path. |
+| **Folder** | `showDirectoryPicker` (Chrome, Edge, Arc, Brave) | You pick a real folder once. Every change is written to `<folder>/bodykalogic-data.json`, plus a dated snapshot in `<folder>/backups/`. The folder handle is remembered in IndexedDB, so re-opening the site reconnects to the same path. |
 | **File** | `showSaveFilePicker` (some Safari builds) | Same, but a single JSON file instead of a folder. |
 | **Browser** | always | Falls back to `localStorage`. Still persistent, but scoped to the browser — use Export regularly. |
 
@@ -88,7 +90,7 @@ Both the plan tabs accept:
 - **A photo** — a snap of the sheet your trainer gave you. Text is pulled out with
   Tesseract.js (lazy-loaded from a CDN on first use only); the result lands in an
   editable box before it is parsed, so you can fix OCR mistakes.
-- **A file** — `.json` (a Forge export), or `.txt` / `.md` / `.csv` of roughly the shape
+- **A file** — `.json` (a BodyKaLogic export), or `.txt` / `.md` / `.csv` of roughly the shape
   below.
 - **Typed text** — paste or type it straight in.
 
