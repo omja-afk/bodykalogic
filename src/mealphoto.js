@@ -103,9 +103,14 @@
   /* Parse lines like "2 roti", "1 katori dal", "150g chicken", "chicken 150 g",
    * "3 eggs", "1 bowl rice". Anything it cannot place comes back in `unmatched`
    * so the UI can say so rather than silently losing it. */
+  /* One segment is one food. Splitting on commas alone merged "3 rotis and 2
+   * katori sabzi" into a single segment, where the longest alias won and the
+   * rotis vanished — so the joining words people actually use split too. */
+  var SEGMENT_RE = /[\n,;]+|\s+and\s+|\s+with\s+|\s*\+\s*|\s+plus\s+/i;
+
   function parsePortions(text) {
     var out = [], unmatched = [];
-    String(text || '').split(/[\n,;]+/).forEach(function (raw) {
+    String(text || '').split(SEGMENT_RE).forEach(function (raw) {
       var line = raw.trim().toLowerCase();
       if (!line) return;
 
@@ -119,6 +124,13 @@
       if (count === null) {
         var first = line.split(/\s+/)[0];
         if (WORD_NUM[first] != null) count = WORD_NUM[first];
+      }
+      // "bread 2 slices" puts the number after the food. For things counted in
+      // pieces, any bare number in the segment is the count — there is nothing
+      // else it could be, since weights are matched separately above.
+      if (count === null && !gm) {
+        var anyNum = line.match(/\b(\d+(?:\.\d+)?)\b/);
+        if (anyNum) count = parseFloat(anyNum[1]);
       }
 
       var hit = matchFood(line);
@@ -141,26 +153,49 @@
     return { items: out, unmatched: unmatched };
   }
 
-  /* Longest alias first, so "peanut butter" never matches as "peanut". */
+  /* Longest alias first, so "peanut butter" never matches as "peanut".
+   *
+   * Keys come from the portion label, the library name, and — for the labels that
+   * are a phrase rather than a word — the word people actually type. Taking the
+   * label whole was not enough: "Roti / chapati" never matched a line reading
+   * "2 roti", because neither the full label nor "Whole-wheat roti" is a substring
+   * of it. Generating the last word automatically would be worse ("Peanut butter"
+   * would claim every mention of butter), so the handful of phrase labels name
+   * their own key here.
+   */
+  var EXTRA_KEYS = {
+    bread: ['bread'], whey: ['whey', 'scoop'], oil: ['oil'], soyachunk: ['soya', 'soy chunk'],
+    peanut: ['peanut', 'groundnut'], almond: ['almond'], prawn: ['prawn'],
+    sprouts: ['sprout'], oats: ['oat'], egg: ['egg'], salad: ['salad']
+  };
+
   var ALIASES = (function () {
     var map = [];
+    var seen = {};
+    function add(key, food, step) {
+      key = String(key).trim().toLowerCase();
+      if (!key || key.length < 3 || seen[key]) return;
+      seen[key] = 1;
+      map.push({ key: key, food: food, step: step });
+    }
     QUICK.forEach(function (q) {
       var f = FD.food(q.food);
       if (!f) return;
-      map.push({ key: q.label.toLowerCase(), food: q.food, step: q.step });
-      map.push({ key: f.name.toLowerCase(), food: q.food, step: q.step });
+      // "Chole / chana" and "Roti / chapati" carry two names for one food.
+      q.label.split('/').forEach(function (part) { add(part, q.food, q.step); });
+      add(f.name, q.food, q.step);
+      (EXTRA_KEYS[q.food] || []).forEach(function (k) { add(k, q.food, q.step); });
     });
     [['chapati','roti'],['phulka','roti'],['chawal','rice'],['bhat','rice'],
      ['daal','dal'],['dhal','dal'],['sabji','mixveg'],['sabzi','mixveg'],
-     ['vegetable','mixveg'],['veg','mixveg'],['dahi','curd'],['yoghurt','curd'],
-     ['yogurt','curd'],['murgh','chicken'],['anda','egg'],['eggs','egg'],
-     ['rotis','roti'],['chhole','chana'],['chole','chana'],['rajmah','rajma'],
+     ['vegetable','mixveg'],['dahi','curd'],['yoghurt','curd'],['yogurt','curd'],
+     ['murgh','chicken'],['anda','egg'],['chhole','chana'],['rajmah','rajma'],
      ['protein shake','whey'],['whey protein','whey'],['doodh','milk'],
-     ['aloo','potato'],['salaad','salad'],['moongfali','peanut'],['nuts','almond'],
-     ['bhindi','mixveg'],['palak','mixveg'],['curry','mixveg']
-    ].forEach(function (p) {
-      var q = QUICK.filter(function (x) { return x.food === p[1]; })[0];
-      map.push({ key: p[0], food: p[1], step: q ? q.step : 100 });
+     ['aloo','potato'],['salaad','salad'],['moongfali','peanut'],
+     ['bhindi','mixveg'],['palak','mixveg'],['curry','mixveg'],['cashew','almond']
+    ].forEach(function (pair) {
+      var q = QUICK.filter(function (x) { return x.food === pair[1]; })[0];
+      add(pair[0], pair[1], q ? q.step : 100);
     });
     return map.sort(function (a, b) { return b.key.length - a.key.length; });
   }());
