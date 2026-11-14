@@ -11,7 +11,11 @@
   var MP = global.MealPhoto, PP = global.PlanParse;
 
   var Views = {};
-  var redraw = function () {};
+  /* Re-render the active tab. This defaulted to a no-op with a setRedraw() hook
+   * that nothing ever called, so every redraw() in this file — the swap, the
+   * regenerate, the whole of Home — silently did nothing and the page only
+   * updated when something else happened to repaint it. */
+  var redraw = function () { global.App.render(); };
   Views.setRedraw = function (fn) { redraw = fn; };
 
   /* ---------------------------------------------------------- small pieces */
@@ -53,54 +57,280 @@
     ])]);
   }
 
-  /* ============================== DASHBOARD ============================== */
+  /* ================================ HOME ================================ */
 
-  Views.dashboard = function (root) {
+  /* The entrance. It is never a form: the page opens on something you can read,
+   * and setting up is one card inside it rather than a wizard standing in front
+   * of it. Before there is a profile it leads with quick setup and shows the
+   * shape of the dashboard behind it; afterwards it IS the dashboard.
+   */
+  function profileReady(p) {
+    return !!(p && p.age && p.heightCm && p.weightKg);
+  }
+
+  Views.home = function (root) {
     UI.clear(root);
-    var st = S.get(), today = UI.todayKey();
-    var t = S.targets();
+    var st = S.get(), p = st.profile;
+    var ready = profileReady(p);
+
+    root.appendChild(heroCard(ready));
+    root.appendChild(statRow(ready));
+
+    if (!ready) {
+      root.appendChild(quickSetupCard());
+      root.appendChild(whatYouGetCard());
+      return;
+    }
+
+    root.appendChild(bmiCard());
+    root.appendChild(todayGrid());
+    root.appendChild(weightTrendCard());
+  };
+
+  function heroCard(ready) {
+    var st = S.get(), p = st.profile;
+    var now = new Date();
+    var hour = now.getHours();
+    var greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    var goal = (PG.GOALS.filter(function (g) { return g.id === p.goal; })[0] || {}).label;
+
+    return h('.card.hero', [
+      h('.card-head', { style: { marginBottom: '6px' } }, [
+        h('div', [
+          h('.stat-label', { text: ready ? 'Overview' : 'Welcome' }),
+          h('h2', { text: ready ? greeting + (p.name ? ', ' + p.name : '') : 'Welcome to Forge' }),
+          h('p', { style: { margin: '6px 0 0' }, text: ready
+            ? UI.prettyDate(UI.todayKey()) + ' · ' + S.streak() + ' day streak'
+            : 'A gym and diet tracker that keeps everything on your own machine. Nothing is sent anywhere, and there is no account to make.' })
+        ]),
+        h('.spacer'),
+        ready && goal ? h('span.chip.chip-accent', { text: goal }) : null
+      ])
+    ]);
+  }
+
+  function statRow(ready) {
+    var st = S.get();
     var w = S.currentWeight(), bmi = S.currentBMI();
     var band = DG.bmiBand(bmi);
+    var t = ready ? S.targets() : null;
+    var today = UI.todayKey();
     var totals = S.nutritionTotals(today);
-    var session = st.workouts[today];
-    var planned = S.plannedDayFor(today);
+    var sessions = Object.keys(st.workouts).filter(function (k) { return st.workouts[k].completed; }).length;
 
-    // weight delta over the last 30 days
     var bodyKeys = Object.keys(st.body).sort();
     var monthAgo = UI.addDays(today, -30);
     var past = bodyKeys.filter(function (k) { return k <= monthAgo; }).pop();
     var delta = (past && w) ? Math.round((w - st.body[past].weightKg) * 10) / 10 : null;
     var goalDown = st.profile.goal === 'fat_loss';
-    var deltaCls = delta == null ? 'delta-flat'
-      : (delta === 0 ? 'delta-flat' : ((delta < 0) === goalDown ? 'delta-up' : 'delta-down'));
+    var deltaCls = delta == null || delta === 0 ? 'delta-flat'
+      : ((delta < 0) === goalDown ? 'delta-up' : 'delta-down');
 
-    root.appendChild(h('.grid.grid-4', [
+    return h('.grid.grid-4', { style: { marginTop: '16px' } }, [
       stat('Weight', w ? C.fmt(w, 1) : '—', w ? ' kg' : '',
-           delta != null ? [h('span.' + deltaCls, { text: (delta > 0 ? '▲ +' : delta < 0 ? '▼ ' : '◆ ') + C.fmt(delta, 1) + ' kg' }),
-                            h('span', { text: 'in 30 days' })] : [h('span', { text: 'log a weigh-in to track this' })],
-           'var(--series-1)'),
+        delta != null
+          ? [h('span.' + deltaCls, { text: (delta > 0 ? '▲ +' : delta < 0 ? '▼ ' : '◆ ') + C.fmt(delta, 1) + ' kg' }),
+             h('span', { text: 'in 30 days' })]
+          : [h('span', { text: w ? 'first weigh-in recorded' : 'add your weight to begin' })],
+        'var(--series-1)'),
       stat('BMI', bmi ? C.fmt(bmi, 1) : '—', '',
-           [h('span.chip.chip-' + (band.tone === 'good' ? 'good' : band.tone === 'bad' ? 'bad' : 'warn'), { text: band.label })],
-           'var(--series-7)'),
-      stat('Protein today', C.fmt(totals.p, 0), ' g',
-           [h('span', { text: 'target ' + t.protein + ' g' }),
-            totals.p >= t.protein ? h('span.chip.chip-good', { text: 'hit' }) : null], 'var(--series-3)'),
-      stat('Streak', S.streak(), ' days', [h('span', { text: 'tracked in a row' })], 'var(--series-4)')
-    ]));
+        bmi ? [h('span.chip.chip-' + (band.tone === 'good' ? 'good' : band.tone === 'bad' ? 'bad' : 'warn'),
+                 { text: band.label })]
+            : [h('span', { text: 'needs height and weight' })],
+        'var(--series-7)'),
+      stat('Protein today', ready ? C.fmt(totals.p, 0) : '—', ready ? ' g' : '',
+        ready
+          ? [h('span', { text: 'target ' + t.protein + ' g' }),
+             totals.p >= t.protein ? h('span.chip.chip-good', { text: 'hit' }) : null]
+          : [h('span', { text: 'set up to get a target' })],
+        'var(--series-3)'),
+      stat('Sessions', sessions, '',
+        [h('span', { text: sessions ? 'completed all time' : 'none logged yet' })], 'var(--series-4)')
+    ]);
+  }
 
+  /* Quick setup: the same questions the guided wizard asks, on one card, so the
+   * app is usable in about twenty seconds. The wizard is still there for anyone
+   * who prefers to be walked through it. */
+  function quickSetupCard() {
+    var st = S.get(), p = st.profile;
+    var f = {};
+    function fld(key, label, node) { f[key] = node; return h('div', [h('label', { text: label }), node]); }
+
+    var card = h('.card', { style: { marginTop: '16px' } }, [
+      h('.card-head', [
+        h('h3', { text: 'Set yourself up' }),
+        h('span.card-sub', { text: 'about twenty seconds — everything stays editable' }),
+        h('.spacer'),
+        h('button.btn.btn-sm.btn-ghost', { text: 'Walk me through it instead', onclick: function () {
+          global.App.guidedSetup();
+        } })
+      ]),
+      h('.field-row', [
+        fld('name', 'Name (optional)', h('input', { value: p.name || '', placeholder: 'optional' })),
+        fld('sex', 'Sex', h('select', [
+          h('option', { value: 'male', selected: p.sex === 'male', text: 'Male' }),
+          h('option', { value: 'female', selected: p.sex === 'female', text: 'Female' })
+        ])),
+        fld('age', 'Age', h('input', { type: 'number', min: 13, max: 100, value: p.age || '', placeholder: 'years' })),
+        fld('heightCm', 'Height', h('input', { type: 'number', min: 100, max: 230, value: p.heightCm || '', placeholder: 'cm' })),
+        fld('weightKg', 'Weight', h('input', { type: 'number', step: 0.1, min: 25, max: 300, value: p.weightKg || '', placeholder: 'kg' }))
+      ]),
+      h('.field-row', [
+        fld('goal', 'Goal', h('select', PG.GOALS.map(function (g) {
+          return h('option', { value: g.id, selected: p.goal === g.id, text: g.label });
+        }))),
+        fld('experience', 'Experience', h('select', PG.EXPERIENCE.map(function (g) {
+          return h('option', { value: g.id, selected: p.experience === g.id, text: g.label });
+        }))),
+        fld('daysPerWeek', 'Days a week', h('select', [2, 3, 4, 5, 6].map(function (d) {
+          return h('option', { value: d, selected: Number(p.daysPerWeek) === d, text: d + ' days' });
+        }))),
+        fld('activity', 'Daily activity', h('select', DG.ACTIVITY.map(function (a) {
+          return h('option', { value: a.id, selected: p.activity === a.id, text: a.label });
+        })))
+      ]),
+      h('.field-row', [
+        fld('equipment', 'Where you train', h('select', Object.keys(EXD.EQUIPMENT_PROFILES).map(function (id) {
+          return h('option', { value: id, selected: p.equipment === id,
+                               text: EXD.EQUIPMENT_PROFILES[id].label });
+        }))),
+        fld('dietPref', 'Diet', h('select', FD.DIET_PREFS.map(function (d) {
+          return h('option', { value: d.id, selected: p.dietPref === d.id, text: d.label });
+        }))),
+        fld('cuisine', 'Cuisine', h('select', FD.CUISINES.map(function (c) {
+          return h('option', { value: c.id, selected: p.cuisine === c.id, text: c.label });
+        })))
+      ]),
+      h('.card-head', { style: { marginTop: '14px', marginBottom: 0 } }, [
+        h('button.btn.btn-primary', { text: 'Build my plan →', onclick: function () {
+          var age = Number(f.age.value), hgt = Number(f.heightCm.value), wgt = Number(f.weightKg.value);
+          if (!age || !hgt || !wgt) {
+            UI.toast('Age, height and weight are needed to work out your targets.', 'bad');
+            (!age ? f.age : !hgt ? f.heightCm : f.weightKg).focus();
+            return;
+          }
+          p.name = f.name.value.trim();
+          p.sex = f.sex.value;
+          p.age = age; p.heightCm = hgt; p.weightKg = wgt;
+          p.goal = f.goal.value;
+          p.experience = f.experience.value;
+          p.daysPerWeek = Number(f.daysPerWeek.value);
+          p.activity = f.activity.value;
+          p.equipment = f.equipment.value;
+          p.dietPref = f.dietPref.value;
+          p.cuisine = f.cuisine.value;
+          // The weight entered here is also the first weigh-in, so the trend
+          // starts today rather than whenever they next remember to record one.
+          if (!Object.keys(st.body).length) {
+            st.body[UI.todayKey()] = { weightKg: wgt, notes: 'starting weight' };
+          }
+          st.plan = PG.generate(p);
+          st.diet = DG.generate(p, { dietPref: p.dietPref, cuisine: p.cuisine, dislikes: [] });
+          st.settings.onboarded = true;
+          S.save(); redraw();
+          UI.toast('Your plan and meals are ready.', 'good');
+        } }),
+        h('.spacer'),
+        h('span.card-sub', { text: 'Nothing is sent anywhere. You choose where it is saved in Profile & data.' })
+      ])
+    ]);
+    return card;
+  }
+
+  function whatYouGetCard() {
+    return h('.grid.grid-3', { style: { marginTop: '16px' } }, [
+      h('.card', [
+        h('h3', { text: 'A plan you can actually change' }),
+        h('p', { style: { fontSize: '.86rem', marginTop: '8px' },
+          text: EXD.EXERCISES.length + ' movements, with a gym / home-dumbbells / bodyweight switch. ' +
+                'Every exercise has a swap list — 60 to 120 alternatives in a gym, 40+ on bodyweight alone.' }),
+        h('button.btn.btn-sm', { text: 'Import a plan I already have',
+          onclick: function () { Views.openPlanImport(); } })
+      ]),
+      h('.card', [
+        h('h3', { text: 'Meals that hit your protein' }),
+        h('p', { style: { fontSize: '.86rem', marginTop: '8px' },
+          text: FD.MEALS.length + ' meal templates across Indian and global cuisines, vegan through non-veg. ' +
+                'Seven different days, each meal swappable for one with similar calories.' }),
+        h('button.btn.btn-sm', { text: 'Import a diet chart',
+          onclick: function () { Views.openDietImport(); } })
+      ]),
+      h('.card', [
+        h('h3', { text: 'Your data, on your disk' }),
+        h('p', { style: { fontSize: '.86rem', marginTop: '8px' },
+          text: 'Pick a folder once and every change is written there as plain JSON, with dated backups. ' +
+                'No account, no server, nothing to cancel.' }),
+        h('button.btn.btn-sm', { text: 'Choose where it saves',
+          onclick: function () { global.App.go('profile'); } })
+      ])
+    ]);
+  }
+
+  /* BMI needs its bands to mean anything, so it gets the scale, not just a number. */
+  function bmiCard() {
+    var st = S.get();
+    var bmi = S.currentBMI(), w = S.currentWeight();
+    var band = DG.bmiBand(bmi);
+    var t = S.targets();
+
+    var host = h('.chart-host');
+    setTimeout(function () {
+      C.gauge(host, {
+        value: bmi, min: 15, max: 40,
+        bands: [
+          { to: 18.5, label: 'Underweight', color: 'var(--warning)' },
+          { to: 25,   label: 'Healthy',     color: 'var(--good)' },
+          { to: 30,   label: 'Overweight',  color: 'var(--serious)' },
+          { to: 40,   label: 'Obese',       color: 'var(--critical)' }
+        ]
+      });
+    }, 0);
+
+    var healthyLow = st.profile.heightCm ? (18.5 * Math.pow(st.profile.heightCm / 100, 2)) : null;
+    var healthyHigh = st.profile.heightCm ? (24.9 * Math.pow(st.profile.heightCm / 100, 2)) : null;
+
+    return h('.card', { style: { marginTop: '16px' } }, [
+      h('.card-head', [
+        h('h3', { text: 'Body mass index' }),
+        h('span.card-sub', { text: bmi ? band.label : 'add a weigh-in to see this' }),
+        h('.spacer'),
+        h('button.btn.btn-sm', { text: '+ Weigh in', onclick: function () { global.App.go('body'); } })
+      ]),
+      host,
+      h('.hint', { style: { marginTop: '10px' }, text: healthyLow
+        ? 'At ' + st.profile.heightCm + ' cm, the healthy BMI range is about ' +
+          C.fmt(healthyLow, 1) + '–' + C.fmt(healthyHigh, 1) + ' kg' +
+          (w ? ' — you are at ' + C.fmt(w, 1) + ' kg.' : '.') +
+          ' BMI is a rough screening measure: it does not know muscle from fat, so a heavily trained person reads high.'
+        : 'Add your height in Profile & data to see your range.' }),
+      h('.hint', { text: 'Daily targets from these numbers: ' + t.kcal + ' kcal, ' + t.protein +
+                         ' g protein, ' + t.carbs + ' g carbs, ' + t.fat + ' g fat, ' +
+                         (t.waterMl / 1000).toFixed(1) + ' L water.' })
+    ]);
+  }
+
+  function todayGrid() {
+    var st = S.get(), today = UI.todayKey();
+    var t = S.targets();
+    var totals = S.nutritionTotals(today);
+    var session = st.workouts[today];
+    var planned = S.plannedDayFor(today);
     var grid = h('.grid.grid-2', { style: { marginTop: '16px' } });
 
-    /* today's session */
     var sessionCard = h('.card', [
       h('.card-head', [
         h('h3', { text: "Today's session" }),
         h('.spacer'),
-        h('button.btn.btn-sm.btn-primary', { text: session && session.completed ? 'Review' : 'Open log',
+        h('button.btn.btn-sm.btn-primary', {
+          text: session && session.completed ? 'Review' : 'Open log',
           onclick: function () { global.App.go('log'); } })
       ])
     ]);
     if (!st.plan) {
-      sessionCard.appendChild(h('p', { text: 'No workout plan yet. Build one in the Workout plan tab.' }));
+      sessionCard.appendChild(h('p', { text: 'No workout plan yet.' }));
+      sessionCard.appendChild(h('button.btn.btn-sm', { text: 'Build one',
+        onclick: function () { global.App.go('plan'); } }));
     } else if (planned) {
       sessionCard.appendChild(h('.day-head', [
         h('h4', { text: planned.day.name }),
@@ -113,7 +343,8 @@
             h('.ex-name', { text: slot.name }),
             h('.ex-meta', { text: slot.sets + ' × ' + slot.reps + (slot.rest ? ' · ' + slot.rest + 's rest' : '') })
           ]),
-          logged && logged.length ? h('span.chip.chip-good', { text: logged.length + ' set' + (logged.length > 1 ? 's' : '') }) : null
+          logged && logged.length
+            ? h('span.chip.chip-good', { text: logged.length + ' set' + (logged.length > 1 ? 's' : '') }) : null
         ]));
       });
       if (planned.day.slots.length > 6) {
@@ -122,17 +353,18 @@
     }
     grid.appendChild(sessionCard);
 
-    /* today's food */
-    var dietDay = st.diet ? st.diet.days[(UI.daysBetween(UI.todayKey(st.createdAt ? new Date(st.createdAt) : new Date()), today) % 7 + 7) % 7] : null;
     var foodCard = h('.card', [
       h('.card-head', [
         h('h3', { text: "Today's food" }),
         h('.spacer'),
-        h('button.btn.btn-sm.btn-primary', { text: 'Log a meal', onclick: function () { global.App.go('nutrition'); } })
+        h('button.btn.btn-sm.btn-primary', { text: 'Log a meal',
+          onclick: function () { global.App.go('nutrition'); } })
       ])
     ]);
     if (!st.diet) {
-      foodCard.appendChild(h('p', { text: 'No diet plan yet. Build one in the Diet plan tab.' }));
+      foodCard.appendChild(h('p', { text: 'No diet plan yet.' }));
+      foodCard.appendChild(h('button.btn.btn-sm', { text: 'Build one',
+        onclick: function () { global.App.go('diet'); } }));
     } else {
       var ring = h('.ring-row');
       [['Calories', totals.kcal, t.kcal, '', 'var(--series-1)'],
@@ -146,16 +378,20 @@
         }, 0);
       });
       foodCard.appendChild(ring);
+      var planIdx = ((UI.daysBetween(UI.todayKey(new Date(st.createdAt)), today) % 7) + 7) % 7;
+      var dietDay = st.diet.days[planIdx];
       if (dietDay) {
         foodCard.appendChild(h('.card-sub', { style: { marginTop: '12px' },
           text: 'Planned today: ' + dietDay.meals.map(function (m) { return m.title; }).join(' · ') }));
       }
     }
     grid.appendChild(foodCard);
-    root.appendChild(grid);
+    return grid;
+  }
 
-    /* weight trend */
-    root.appendChild(chartCard('Weight trend', 'last 90 days', function (host) {
+  function weightTrendCard() {
+    var st = S.get(), today = UI.todayKey();
+    return chartCard('Weight trend', 'last 90 days', function (host) {
       var pts = [];
       for (var i = 89; i >= 0; i--) {
         var k = UI.addDays(today, -i);
@@ -170,8 +406,10 @@
         targetLabel: 'goal',
         empty: 'No weigh-ins yet. Add one in the Body tab and this fills in.'
       });
-    }));
-  };
+    });
+  }
+
+  Views.profileReady = profileReady;
 
   /* A weight chart with one dot a week looks broken. Carry the last reading
    * forward so the line is continuous, but only between real readings — never

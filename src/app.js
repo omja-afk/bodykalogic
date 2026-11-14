@@ -14,7 +14,7 @@
   var S = global.State, Views = global.Views;
 
   var VIEWS = {
-    dashboard: { title: 'Dashboard',       sub: 'where everything stands today' },
+    home:      { title: 'Home',            sub: 'where everything stands today' },
     plan:      { title: 'Workout plan',    sub: 'your split, and every alternative for it' },
     diet:      { title: 'Diet plan',       sub: 'seven days built to your targets' },
     log:       { title: "Today's session", sub: 'log sets, reps and weight' },
@@ -26,12 +26,13 @@
   };
 
   var App = {
-    current: 'dashboard',
+    current: 'home',
     logDate: null,
     foodDate: null,
 
     go: function (name) {
-      if (!VIEWS[name]) name = 'dashboard';
+      if (name === 'dashboard') name = 'home';   // old links and saved hashes
+      if (!VIEWS[name]) name = 'home';
       App.current = name;
       try { location.hash = name; } catch (e) {}
       App.render();
@@ -84,6 +85,11 @@
 
   function runOnboarding() {
     var root = document.getElementById('onboard-root');
+    function abandon() {
+      UI.clear(root);
+      document.getElementById('app').hidden = false;
+      App.go('home');
+    }
     var p = S.get().profile;
     var step = 0;
     var answers = Object.assign({}, p);
@@ -273,7 +279,8 @@
         s.intro ? h('p', { style: { marginTop: '8px' }, text: s.intro }) : null,
         h('div', { style: { marginTop: '16px' } }, s.fields()),
         h('.card-head', { style: { marginTop: '22px', marginBottom: 0 } }, [
-          step > 0 ? h('button.btn', { text: '‹ Back', onclick: function () { step--; draw(); } }) : null,
+          step > 0 ? h('button.btn', { text: '‹ Back', onclick: function () { step--; draw(); } })
+                   : h('button.btn.btn-ghost', { text: '‹ Back to Home', onclick: abandon }),
           h('.spacer'),
           h('button.btn.btn-primary', {
             text: step === STEPS.length - 1 ? 'Build my plans' : 'Continue ›',
@@ -302,7 +309,7 @@
       S.save();
       UI.clear(root);
       document.getElementById('app').hidden = false;
-      App.go('dashboard');
+      App.go('home');
       UI.toast('Your plan and meals are ready.', 'good');
     }
 
@@ -337,19 +344,17 @@
       document.getElementById('boot').hidden = true;
       var data = res.data;
 
-      if (!data || !data.settings || !data.settings.onboarded) {
-        S.set(S.normalise(data));
-        runOnboarding();
-        return;
-      }
-
+      // A first-time visitor lands on Home like everyone else. The questionnaire
+      // used to stand in front of the app, which meant the first thing anyone saw
+      // was a form and none of the dashboard was reachable until it was finished.
+      // Setting up is now a card on Home, and the guided version is opt-in.
       S.set(S.normalise(data));
       var st = S.get();
       if (st.settings.theme) document.documentElement.dataset.theme = st.settings.theme;
 
       document.getElementById('app').hidden = false;
       var hash = location.hash.replace('#', '');
-      App.go(VIEWS[hash] ? hash : 'dashboard');
+      App.go(VIEWS[hash] ? hash : 'home');
 
       var status = global.Store.status();
       if (status.needsPermission) {
@@ -363,6 +368,9 @@
         '<h3>Could not start</h3><p>' + UI.esc(err.message) + '</p>';
     });
   }
+
+  // Reachable from the Home card for anyone who would rather be walked through it.
+  App.guidedSetup = function () { runOnboarding(); };
 
   global.App = App;
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);

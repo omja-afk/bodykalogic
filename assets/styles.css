@@ -177,6 +177,18 @@ a  { color: var(--accent); }
   box-shadow: var(--shadow);
 }
 .card + .card { margin-top: 16px; }
+
+/* The entrance card. Enough lift to read as a landing without becoming a
+ * splash screen the user has to get past. */
+.card.hero {
+  background:
+    linear-gradient(135deg, rgba(57,135,229,.16), transparent 42%),
+    linear-gradient(300deg, rgba(144,133,233,.13), transparent 46%),
+    var(--surface-1);
+  border-color: rgba(57,135,229,.22);
+}
+.card.hero h2 { font-size: 1.5rem; margin-top: 2px; }
+.card.hero p { max-width: 62ch; }
 .card-head {
   display: flex; align-items: center; gap: 10px;
   margin-bottom: 14px; flex-wrap: wrap;
@@ -311,6 +323,9 @@ textarea { resize: vertical; min-height: 84px; font-size: .84rem; }
 .chart .ring-value  { fill: none; transition: stroke-dashoffset .5s ease; }
 .chart .ring-num    { fill: var(--ink); font-size: 19px; font-weight: 700; font-family: var(--font); }
 .chart .ring-sub    { fill: var(--ink-muted); font-size: 10.5px; font-family: var(--font); }
+.chart .gauge-pin   { stroke: var(--ink); stroke-width: 2; }
+.chart .gauge-dot   { fill: var(--ink); stroke: var(--surface-1); stroke-width: 2; }
+.chart .gauge-label { fill: var(--ink); font-size: 12px; font-weight: 700; font-family: var(--font); }
 .chart .heat-cell   { fill: var(--series-1); }
 .chart .heat-cell.is-empty { fill: var(--surface-3); }
 

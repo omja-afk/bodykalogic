@@ -327,6 +327,46 @@
     }
   }
 
+  /* --------------------------------------------------------------- gauge */
+
+  /* A banded scale with a marker — for BMI, where the number means nothing
+   * without the bands around it. Ordered bands, so this is an ordinal ramp
+   * rather than a categorical palette: status colours, not series colours. */
+  function gauge(host, opts) {
+    host.innerHTML = '';
+    host.classList.add('chart-host');
+    var bands = opts.bands || [];
+    if (!bands.length) return;
+
+    var W = 760, H = 86, GAP = 2;
+    var min = opts.min, max = opts.max;
+    var svg = svgRoot(W, H, 'chart-gauge');
+    var X = function (v) { return ((Math.max(min, Math.min(max, v)) - min) / (max - min)) * W; };
+
+    var from = min;
+    bands.forEach(function (b, i) {
+      var x0 = X(from), x1 = X(b.to);
+      var w = Math.max(0, x1 - x0 - (i < bands.length - 1 ? GAP : 0));
+      el('rect', { x: x0, y: 30, width: w, height: 18, rx: 4, fill: b.color, 'fill-opacity': 0.9 }, svg);
+      el('text', { x: x0 + w / 2, y: 64, class: 'tick', 'text-anchor': 'middle' }, svg).textContent = b.label;
+      el('text', { x: x1, y: 78, class: 'tick', 'text-anchor': 'middle' }, svg).textContent = fmt(b.to, 1);
+      from = b.to;
+    });
+
+    if (opts.value != null) {
+      var x = X(opts.value);
+      // marker: a pin with a surface-coloured ring so it reads on any band
+      el('line', { x1: x, x2: x, y1: 24, y2: 54, class: 'gauge-pin' }, svg);
+      el('circle', { cx: x, cy: 24, r: 6, class: 'gauge-dot' }, svg);
+      var label = el('text', { x: x, y: 14, class: 'gauge-label', 'text-anchor': 'middle' }, svg);
+      label.textContent = fmt(opts.value, 1);
+      // keep the label inside the viewBox at the extremes
+      if (x < 24) label.setAttribute('text-anchor', 'start');
+      if (x > W - 24) label.setAttribute('text-anchor', 'end');
+    }
+    host.appendChild(svg);
+  }
+
   /* ------------------------------------------------------- consistency grid */
 
   /* cells: [{date, value}] — a sequential one-hue ramp, light = near zero. */
@@ -402,6 +442,7 @@
     stack: stackBar,
     ring: ring,
     heatmap: heatmap,
+    gauge: gauge,
     seriesColor: series,
     fmt: fmt
   };

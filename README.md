@@ -37,7 +37,10 @@ then open <http://localhost:8080>.
 
 ## Tabs
 
-- **Dashboard** — today's session, today's meals, current weight/BMI, streak, quick log.
+- **Home** — the entrance. Opens on your dashboard: weight, BMI on a banded scale,
+  protein against target, today's session, today's meals and the weight trend. Before
+  you have a profile it leads with a one-card setup instead, and the rest of the app
+  stays reachable while you decide.
 - **Workout plan** — your split, with a gym / home-dumbbells / bodyweight switch at the
   top that re-equips the whole plan. Generated, imported, or written by hand.
 - **Diet plan** — seven distinct days built to your calorie and protein targets, with
@@ -52,6 +55,15 @@ then open <http://localhost:8080>.
   target, per-exercise strength curves and a 12-week consistency heatmap.
 - **Profile & data** — your measurements and goals, plus folder connection, export,
   import and reset.
+
+## Setting up
+
+There is no sign-up wall and no wizard standing in front of the app. Home asks for
+nine things on a single card — sex, age, height, weight, goal, experience, days a week,
+where you train, and what you eat — and builds your plan and week of meals from them.
+It takes about twenty seconds, and everything stays editable afterwards in
+**Profile & data**. A guided, step-by-step version is there from the same card for
+anyone who prefers it.
 
 ## Importing an existing plan
 
