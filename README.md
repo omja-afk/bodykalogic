@@ -214,7 +214,9 @@ take the plan to a professional first.
 ```
 index.html             markup and tab shells
 assets/styles.css      all styling, dark by default
-assets/logo.svg        tab icon — the badge reduced to disc, ring and monogram
+assets/icon-<hash>.svg tab icon — the badge reduced to a ringed disc and barbell.
+                       The name carries the file's content hash, so a changed icon is
+                       a new URL and no cache can hold the old one. Rename on change.
 assets/wordmark-*.png  the full badge, light ink and dark ink
 src/store.js           local cache: localStorage, export and import
 src/sync.js            accounts and cross-device sync over Supabase's REST API

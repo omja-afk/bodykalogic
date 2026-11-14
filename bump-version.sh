@@ -15,10 +15,17 @@ import io, re, sys
 v = sys.argv[1]
 p = 'index.html'
 s = io.open(p, encoding='utf-8').read()
+# A filename that already carries an 8-hex content hash is its own cache key —
+# changing the file changes the URL. Stamping it would add a query string that
+# says nothing, and query strings turned out not to be enough for the tab icon.
+HASHED = re.compile(r'-[0-9a-f]{8}\.[a-z]+$')
+
 def stamp(m):
     attr, url = m.group(1), m.group(2)
     if url.startswith(('http://', 'https://', '//', 'data:')):
         return m.group(0)
+    if HASHED.search(url.split('?')[0]):
+        return '%s="%s"' % (attr, url.split('?')[0])
     return '%s="%s?v=%s"' % (attr, url.split('?')[0], v)
 s = re.sub(r'\b(src|href)="([^"]+\.(?:js|css|svg|png))(?:\?[^"]*)?"', stamp, s)
 io.open(p, 'w', encoding='utf-8').write(s)
