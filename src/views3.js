@@ -140,6 +140,8 @@
       return h('option', { value: s, selected: existing && existing.slot === s, text: FD.SLOT_LABEL[s] });
     }));
     var photoHost = h('div');
+    var aiStatus = h('.hint', { role: 'status' });
+    var busy = false;
     var itemsHost = h('div');
     var totalHost = h('div');
     var quickHost = h('.check-grid');
@@ -152,9 +154,46 @@
       UI.clear(photoHost);
       if (!photo) return;
       photoHost.appendChild(h('img.photo-preview', { src: photo, alt: 'The meal you photographed' }));
-      photoHost.appendChild(h('button.btn.btn-sm.btn-ghost.btn-danger', {
-        type: 'button', text: 'Remove photo', onclick: function () { photo = null; renderPhoto(); }
-      }));
+      photoHost.appendChild(h('.card-head', { style: { marginBottom: 0, gap: '8px' } }, [
+        UI.button('.btn-sm.btn-primary', 'sparkle', 'Work out what\u2019s in it', {
+          onclick: function () { runAnalysis({ image: photo }, 'photo'); }
+        }),
+        h('button.btn.btn-sm.btn-ghost.btn-danger', {
+          type: 'button', text: 'Remove photo', onclick: function () { photo = null; renderPhoto(); }
+        })
+      ]));
+    }
+
+    /* Ask the server to estimate the meal, and put what comes back on the plate
+     * as ordinary editable items. Nothing is saved until "Log it". */
+    function runAnalysis(payload, from) {
+      if (busy) return Promise.resolve(false);
+      busy = true;
+      aiStatus.textContent = from === 'photo' ? 'Looking at your photo…' : 'Working out “' + payload.text + '”…';
+      aiStatus.classList.remove('is-bad');
+      return MP.analyse(payload).then(function (res) {
+        busy = false;
+        if (!res.items.length) {
+          aiStatus.textContent = res.note || 'No food could be made out. Add it by hand below.';
+          return false;
+        }
+        res.items.forEach(function (est) {
+          var item = MP.fromEstimate(est);
+          if (item.food) addItem(item.food, item.qty, true);
+          else items.push(item);
+        });
+        if (!title.value.trim() && res.meal_name) title.value = res.meal_name;
+        renderItems();
+        aiStatus.textContent = 'Estimated ' + res.items.length + ' item' + (res.items.length === 1 ? '' : 's') +
+          (res.confidence === 'low' ? ' — the photo was hard to read, so check these carefully.' : ' — check the amounts before you log it.') +
+          (res.remaining != null ? ' ' + res.remaining + ' analyses left today.' : '');
+        return true;
+      }, function (err) {
+        busy = false;
+        aiStatus.textContent = err.message;
+        aiStatus.classList.add('is-bad');
+        return false;
+      });
     }
 
     function renderItems() {
@@ -163,10 +202,11 @@
         itemsHost.appendChild(h('.chart-empty', { text: 'Nothing on the plate yet — tap a portion below or type it.' }));
       }
       items.forEach(function (item, i) {
-        var f = FD.food(item.food);
+        var f = FD.itemFood(item);
         if (!f) return;
         itemsHost.appendChild(h('.item-line', [
-          h('span.item-name', { text: f.name }),
+          h('span.item-name', [f.name,
+            item.ai ? h('span.item-tag', { text: 'estimate' }) : item.custom ? h('span.item-tag', { text: 'your entry' }) : null]),
           h('input', { type: 'number', inputmode: 'decimal', value: item.qty, min: 0, step: f.unit === 'piece' ? 1 : 5,
             'aria-label': f.name + ' quantity',
             onchange: function (e) { item.qty = Math.max(0, Number(e.target.value) || 0); renderTotal(); } }),
@@ -192,10 +232,40 @@
       ]));
     }
 
-    function addItem(foodId, qty) {
-      var found = items.filter(function (i) { return i.food === foodId; })[0];
+    function addItem(foodId, qty, quiet) {
+      var found = items.filter(function (i) { return foodId && i.food === foodId; })[0];
       if (found) found.qty = DG.roundQty(foodId, found.qty + qty);
       else items.push({ food: foodId, qty: qty });
+      if (!quiet) renderItems();
+    }
+
+    /* A food of your own: you give the amount and the calories (and the macros
+     * if you know them); the totals are worked out from those. */
+    var own = {
+      name: h('input', { placeholder: 'e.g. Aloo paratha' }),
+      qty: h('input', { type: 'number', inputmode: 'decimal', min: 0, step: 'any', value: 1 }),
+      unit: h('select', [
+        h('option', { value: 'piece', text: 'pieces' }),
+        h('option', { value: 'g', text: 'grams' }),
+        h('option', { value: 'ml', text: 'ml' })
+      ]),
+      kcal: h('input', { type: 'number', inputmode: 'decimal', min: 0, placeholder: 'total kcal' }),
+      p: h('input', { type: 'number', inputmode: 'decimal', min: 0, placeholder: 'optional' }),
+      c: h('input', { type: 'number', inputmode: 'decimal', min: 0, placeholder: 'optional' }),
+      f: h('input', { type: 'number', inputmode: 'decimal', min: 0, placeholder: 'optional' })
+    };
+    var ownNote = h('.hint', { role: 'status' });
+    function addOwn() {
+      var name = own.name.value.trim(), q = Number(own.qty.value), kcal = Number(own.kcal.value);
+      if (!name) { ownNote.textContent = 'Give the food a name.'; own.name.focus(); return; }
+      if (!(q > 0)) { ownNote.textContent = 'Enter how much you had.'; own.qty.focus(); return; }
+      if (!(kcal >= 0) || own.kcal.value === '') { ownNote.textContent = 'Enter the calories for that amount.'; own.kcal.focus(); return; }
+      var per = function (v) { return Math.round((Number(v) || 0) / q * 10000) / 10000; };
+      items.push({ food: null, qty: q, custom: { name: name.slice(0, 60), unit: own.unit.value,
+        kcal: per(kcal), p: per(own.p.value), c: per(own.c.value), f: per(own.f.value) } });
+      ['name', 'kcal', 'p', 'c', 'f'].forEach(function (k) { own[k].value = ''; });
+      own.qty.value = 1;
+      ownNote.textContent = '';
       renderItems();
     }
 
@@ -213,18 +283,24 @@
       e.target.value = '';
       MP.readPhoto(f, PHOTO_EDGE).then(function (p) {
         photo = p.dataUrl; renderPhoto();
-      }).catch(function (err) { UI.toast(err.message, 'bad'); });
+        aiStatus.textContent = '';
+      }).catch(function (err) { aiStatus.textContent = err.message; aiStatus.classList.add('is-bad'); });
     });
 
+    /* Everyday foods are read on the device, instantly and for free. Only what
+     * that cannot place is sent for analysis. */
     function applyTyped() {
       var r = MP.parsePortions(typed.value);
-      r.items.forEach(function (it) { addItem(it.food, it.qty); });
-      if (r.unmatched.length) {
-        UI.toast('Not recognised: ' + r.unmatched.join(', ') + '. Add it from the portions below.', 'bad');
-      }
+      r.items.forEach(function (it) { addItem(it.food, it.qty, true); });
+      renderItems();
       // Leave behind only what could not be read, so it can be corrected
       // rather than typed again.
       typed.value = r.unmatched.join(', ');
+      if (!r.unmatched.length) { aiStatus.textContent = ''; return; }
+      var rest = r.unmatched.join(', ');
+      runAnalysis({ text: rest }, 'text').then(function (done) {
+        if (done) typed.value = '';
+      });
     }
     typed.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); applyTyped(); } });
 
@@ -243,7 +319,7 @@
             photoInput
           ]),
           photoHost,
-          h('.hint', { text: 'The photo is kept with the entry as a record of the meal. Calories and macros come from the portions below, so set those to match what is on the plate.' })
+          h('.hint', { text: 'Tap “Work out what’s in it” and the photo is sent to Google Gemini to estimate the foods and portions. The photo is also kept with the entry as a record of the meal.' })
         ]),
 
         h('.field', [
@@ -252,14 +328,34 @@
             typed,
             h('button.btn.btn-sm', { type: 'button', text: 'Add', onclick: applyTyped })
           ]),
-          h('.hint', { text: 'Understands rotis, katoris, glasses, pieces and grams — "2 roti, 1 katori dal, 150g chicken".' })
+          h('.hint', { text: 'Understands rotis, katoris, glasses, pieces and grams — "2 roti, 1 katori dal, 150g chicken". Anything else, like "a plate of chicken biryani", is worked out by Gemini.' })
         ]),
+        aiStatus,
 
         h('.field', [h('.field-title', { text: 'On the plate' }), itemsHost]),
         totalHost,
         h('.field', [
           h('.field-title', { text: 'Common portions' }),
           quickHost
+        ]),
+        h('details.own-food', [
+          h('summary', { text: 'Add your own food — you know the calories' }),
+          h('.field-row', { style: { marginTop: '10px' } }, [
+            h('div', [h('label', { text: 'Food' }), own.name]),
+            h('div', [h('label', { text: 'Amount' }), own.qty]),
+            h('div', [h('label', { text: 'Unit' }), own.unit]),
+            h('div', [h('label', { text: 'Calories (kcal)' }), own.kcal])
+          ]),
+          h('.field-row', [
+            h('div', [h('label', { text: 'Protein (g)' }), own.p]),
+            h('div', [h('label', { text: 'Carbs (g)' }), own.c]),
+            h('div', [h('label', { text: 'Fat (g)' }), own.f])
+          ]),
+          h('.card-head', { style: { marginTop: '10px', marginBottom: 0 } }, [
+            UI.button('.btn-sm', 'plus', 'Add to plate', { onclick: addOwn }),
+            ownNote
+          ]),
+          h('.hint', { text: 'Enter the totals for the amount you had — e.g. 2 pieces, 500 kcal. Change the amount on the plate later and the numbers scale with it.' })
         ])
       ],
       actions: [

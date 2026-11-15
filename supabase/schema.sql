@@ -52,3 +52,24 @@ drop trigger if exists tracker_state_touch on public.tracker_state;
 create trigger tracker_state_touch
   before insert or update on public.tracker_state
   for each row execute function public.touch_updated_at();
+
+-- Meal analysis usage: one row per analysis, used to cap each account at a
+-- daily number. Users can add rows and read their own, but never change or
+-- delete them, so a limit cannot be reset from the browser.
+create table if not exists public.ai_usage (
+  id         bigint generated always as identity primary key,
+  user_id    uuid        not null default auth.uid() references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+create index if not exists ai_usage_user_time on public.ai_usage (user_id, created_at);
+
+alter table public.ai_usage enable row level security;
+
+drop policy if exists "read own usage"   on public.ai_usage;
+drop policy if exists "insert own usage" on public.ai_usage;
+
+create policy "read own usage" on public.ai_usage
+  for select using (auth.uid() = user_id);
+
+create policy "insert own usage" on public.ai_usage
+  for insert with check (auth.uid() = user_id);

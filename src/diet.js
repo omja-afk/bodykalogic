@@ -114,8 +114,8 @@
 
   /* ------------------------------------------------------- macro arithmetic */
 
-  function itemMacros(foodId, qty) {
-    var f = FD.food(foodId);
+  function itemMacros(item) {
+    var f = FD.itemFood(item), qty = Number(item.qty) || 0;
     if (!f) return { kcal: 0, p: 0, c: 0, f: 0 };
     var k = qty / f.per;
     return {
@@ -128,7 +128,7 @@
 
   function sumMacros(items) {
     return items.reduce(function (acc, it) {
-      var m = itemMacros(it.food, it.qty);
+      var m = itemMacros(it);
       acc.kcal += m.kcal; acc.p += m.p; acc.c += m.c; acc.f += m.f;
       return acc;
     }, { kcal: 0, p: 0, c: 0, f: 0 });

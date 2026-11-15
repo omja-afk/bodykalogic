@@ -1,0 +1,4 @@
+# The site is plain static files; this only tells Netlify where the one
+# server function lives (meal analysis — see netlify/functions/analyze-meal.mjs).
+[functions]
+  directory = "netlify/functions"

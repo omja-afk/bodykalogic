@@ -111,7 +111,7 @@
 
   function describeItems(items) {
     return items.map(function (i) {
-      var f = FD.food(i.food);
+      var f = FD.itemFood(i);
       return f ? f.name + ' ' + i.qty + (f.unit === 'piece' ? '' : ' ' + f.unit) : '';
     }).filter(Boolean).join(' · ');
   }
@@ -125,7 +125,7 @@
     var meta = h('.meal-meta', { text: describeItems(meal.items) });
     var detail = h('.meal-detail', { hidden: true });
     meal.items.forEach(function (item) {
-      var f = FD.food(item.food);
+      var f = FD.itemFood(item);
       if (!f) return;
       detail.appendChild(h('.item-line', [
         h('span.item-name', { text: f.name }),

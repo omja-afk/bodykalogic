@@ -573,7 +573,13 @@
       markDirty(false);
     },
 
-    user: function () { return session ? session.user : null; }
+    user: function () { return session ? session.user : null; },
+
+    /* A current access token, refreshed first if it is about to expire. Used
+     * to prove to the meal-analysis function who is asking. */
+    accessToken: function () {
+      return ensureFresh().then(function (s) { return s.access_token; });
+    }
   };
 
   global.Sync = Sync;

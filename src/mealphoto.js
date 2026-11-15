@@ -90,6 +90,26 @@
 
   /* ------------------------------------------------------- typed portion entry */
 
+  /* Words that describe a food without changing what it is. */
+  var PLAIN = ['steamed', 'boiled', 'plain', 'cooked', 'whole', 'wheat', 'atta', 'homemade', 'home', 'made',
+               'fresh', 'small', 'medium', 'large', 'toasted', 'hard', 'soft', 'raw', 'tadka', 'a', 'of', 'the',
+               'cup', 'bowl', 'katori', 'plate', 'serving', 'piece', 'pieces', 'slice', 'slices', 'glass', 'basmati',
+               'white', 'phulka', 'chapati'];
+
+  /* Amounts and containers, which say how much rather than what. */
+  var MEASURE = ['g', 'gm', 'gms', 'gram', 'grams', 'ml', 'katori', 'katoris', 'bowl', 'bowls', 'glass',
+                 'glasses', 'cups', 'plates', 'tbsp', 'tsp', 'spoon', 'spoons', 'scoop', 'scoops', 'and', 'with'];
+
+  /* Does `line` say nothing but the matched food, an amount, and plain
+   * description? Another name for the same food ("scoop" and "whey") is fine. */
+  function onlyThis(line, hit) {
+    return line.replace(hit.key, ' ').split(/[^a-z0-9.]+/).filter(Boolean).every(function (w) {
+      return /^\d+(\.\d+)?[a-z]*$/.test(w) || WORD_NUM[w] != null || PLAIN.indexOf(w) !== -1 ||
+             MEASURE.indexOf(w) !== -1 || /^(es|s)$/.test(w) ||
+             ALIASES.some(function (a) { return a.food === hit.food && (a.key === w || a.key === w.replace(/e?s$/, '')); });
+    });
+  }
+
   var WORD_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6,
                    half: 0.5, 'two-and-half': 2.5 };
 
@@ -126,8 +146,10 @@
         if (anyNum) count = parseFloat(anyNum[1]);
       }
 
+      // A known food only counts when it is the whole of what was typed:
+      // "2 roti" is roti, but "chicken biryani" is not chicken.
       var hit = matchFood(line);
-      if (!hit) { unmatched.push(raw.trim()); return; }
+      if (!hit || !onlyThis(line, hit)) { unmatched.push(raw.trim()); return; }
 
       var f = FD.food(hit.food);
       var qty;
@@ -200,10 +222,71 @@
     return null;
   }
 
+  /* ------------------------------------------------------- AI meal analysis */
+
+  /* Ask the server to estimate a meal from a photo (a data URL) or a short
+   * description. Resolves the estimate, or rejects with an Error whose
+   * message is ready to show. Used only by the "Log a meal" window. */
+  function analyse(payload) {
+    var Sync = global.Sync;
+    if (!Sync || !Sync.status().signedIn) return Promise.reject(new Error('Sign in to use meal analysis.'));
+    return Sync.accessToken().then(function (token) {
+      return fetch('/api/analyze-meal', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+        body: JSON.stringify(payload)
+      });
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (body) {
+        if (res.ok) return body;
+        var why = {
+          not_configured: 'Meal analysis isn\u2019t switched on for this site yet.',
+          daily_limit: 'You\u2019ve used today\u2019s ' + (body.limit || '') + ' meal analyses. Add the foods below by hand, or try again tomorrow.',
+          ai_busy: 'Meal analysis is busy right now. Try again in a minute.',
+          image_too_large: 'That photo is too large to analyse.',
+          too_long: 'That description is too long. Keep it to a sentence or two.',
+          signed_out: 'Your session has expired. Sign in again to use meal analysis.'
+        }[body.error];
+        if (!why && res.status === 404) why = 'Meal analysis isn\u2019t available here.';
+        throw new Error(why || 'Couldn\u2019t analyse that meal. Try again, or add the foods by hand.');
+      });
+    }, function (e) {
+      throw new Error(e && /fetch|network/i.test(String(e.message)) || !navigator.onLine
+        ? 'You\u2019re offline. Meal analysis needs a connection.'
+        : (e && e.message) || 'Couldn\u2019t analyse that meal.');
+    });
+  }
+
+  /* Turn one estimated food into a meal item. A food the library already knows
+   * is logged as that library food, so the same thing always counts the same;
+   * anything else keeps the estimate's own figures. The library food only
+   * counts as a match when everything else in the name is plain description —
+   * "steamed rice" is rice, but "chicken biryani" is not chicken. */
+  function fromEstimate(est) {
+    var name = String(est.name || '').toLowerCase().replace(/[^a-z\s-]/g, ' ').replace(/\s+/g, ' ').trim();
+    var hit = name ? matchFood(name) : null;
+    if (hit && onlyThis(name, hit)) {
+      var f = FD.food(hit.food);
+      var weightish = f.unit === 'g' || f.unit === 'ml';
+      if ((weightish && est.unit !== 'piece') || (f.unit === 'piece' && est.unit === 'piece')) {
+        return { food: hit.food, qty: DG.roundQty(hit.food, est.quantity) };
+      }
+    }
+    var q = Number(est.quantity) || 1;
+    var per = function (v) { return Math.round((Number(v) || 0) / q * 10000) / 10000; };
+    return {
+      food: null, qty: q, ai: true,
+      custom: { name: String(est.name || 'Food'), unit: est.unit === 'piece' || est.unit === 'ml' ? est.unit : 'g',
+                kcal: per(est.kcal), p: per(est.protein_g), c: per(est.carbs_g), f: per(est.fat_g) }
+    };
+  }
+
   global.MealPhoto = {
     QUICK: QUICK,
     readPhoto: readPhoto,
     parsePortions: parsePortions,
+    analyse: analyse,
+    fromEstimate: fromEstimate,
     macrosFor: function (items) { return DG.roundMacros(DG.sumMacros(items)); }
   };
 

@@ -518,6 +518,13 @@ abbr[title] { text-decoration: underline dotted; cursor: help; }
 .item-line input[type="number"] { width: 78px; padding: 5px 8px; font-size: .8rem; }
 .item-unit { font-size: .74rem; color: var(--ink-muted); width: 42px; }
 .meal-detail { padding: 2px 10px 10px; }
+.item-tag {
+  margin-left: 7px; padding: 1px 6px; border-radius: 5px; font-size: .68rem;
+  background: var(--accent-soft); color: var(--accent); vertical-align: 1px;
+}
+.hint.is-bad { color: var(--critical); }
+.own-food { margin-top: 4px; border-top: 1px solid var(--hairline-soft); padding-top: 12px; }
+.own-food summary { cursor: pointer; font-size: .84rem; font-weight: 550; color: var(--accent); width: max-content; }
 .meal-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; flex: none; }
 
 /* =============================== modal ================================ */

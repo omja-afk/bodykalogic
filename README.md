@@ -180,21 +180,46 @@ calories of the meal they would replace, so a swap does not blow up the day.
 
 ## Logging a meal
 
-Three ways into the same editable list of what was on the plate:
+Four ways into the same editable list of what was on the plate:
 
-- **A photo** — stored with the entry as a record of the meal.
 - **Household portions** — tap "2 roti", "1 katori dal", "a palm of chicken". These are
   the units people actually measure in, mapped to grams.
-- **Typed** — "2 roti, 1 katori dal, 150g paneer, 1 glass milk" is read directly,
-  including Hindi names (dahi, anda, chawal, aloo).
+- **Typed** — "2 roti, 1 katori dal, 150g paneer, 1 glass milk" is read on the device,
+  including Hindi names (dahi, anda, chawal, aloo). Anything it does not recognise —
+  "a plate of chicken biryani" — is sent for meal analysis (below).
+- **A photo** — kept with the entry, and **Work out what's in it** estimates the foods and
+  portions from it.
+- **Your own food** — a name, an amount and the calories (protein, carbs and fat if you
+  know them). No AI; the totals are worked out from what you enter.
 
-Macros are computed from that list, and every quantity stays editable, so a custom
-portion is one number change.
+Every quantity stays editable before saving, and changing an amount scales its numbers.
 
-**The photo is a record, not a measurement.** Nothing here is sent anywhere, so there is
-no model available to look at the picture and tell you what is on it — the protein and
-calorie figures come from the portions you confirm. The quick-tap pills are built to
-make that take a few seconds.
+### Meal analysis (Google Gemini)
+
+Used only in the **Log a meal** window. The browser never sees the API key: requests go
+to a Netlify function, `netlify/functions/analyze-meal.mjs`, which
+
+- accepts only signed-in users (it checks their Supabase session),
+- sends Gemini a fixed meal-analysis prompt — a caller can send a photo or a description
+  of food and nothing else,
+- caps each account at `AI_DAILY_LIMIT` analyses a day (default 30), counted in the
+  `ai_usage` table from `supabase/schema.sql`.
+
+Foods the library knows ("steamed rice", "boiled eggs") are logged as library foods so
+they always count the same; dishes it does not ("chicken biryani") keep Gemini's estimate.
+
+To switch it on, set these in **Netlify → Site configuration → Environment variables**,
+then redeploy:
+
+| Variable | |
+|---|---|
+| `GEMINI_API_KEY` | required — from Google AI Studio |
+| `GEMINI_MODEL` | optional, default `gemini-3.5-flash-lite` |
+| `AI_DAILY_LIMIT` | optional, default `30` |
+
+On Gemini's free tier, Google may use what is sent (including meal photos) to improve its
+products; a paid key changes that. The function logs Gemini errors (never the key) under
+**Netlify → Logs → Functions**.
 
 ## Generated plans
 
@@ -245,7 +270,8 @@ src/diet.js            calorie/macro maths and 7-day menu generation
 src/data-exercises.js  488 movements, with the swap tiers
 src/data-foods.js      130 foods
 src/data-meals.js      331 meal templates
-src/mealphoto.js       meal photos, household portions, the typed-plate parser
+src/mealphoto.js       meal photos, household portions, the typed-plate parser, meal analysis
+netlify/functions/analyze-meal.mjs  the meal-analysis server function (Gemini)
 src/parse.js           photo/file/text plan import
 src/charts.js          hand-rolled SVG charts
 src/ui.js              DOM helpers, toasts, modals
