@@ -130,7 +130,7 @@
     setTimeout(function () {
       t.style.transition = 'opacity .25s, transform .25s';
       t.style.opacity = '0';
-      t.style.transform = 'translateY(-10px)';
+      t.style.transform = 'translateX(14px)';
       setTimeout(function () { t.remove(); }, 260);
     }, kind === 'bad' ? 5200 : 2800);
   }

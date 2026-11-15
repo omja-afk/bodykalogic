@@ -202,7 +202,7 @@
           answers.heightCm = Number(val('o-height'));
           answers.weightKg = Number(val('o-weight'));
           var problem = S.vitalsProblem(answers.age, answers.heightCm, answers.weightKg);
-          if (problem) { UI.toast(problem, 'bad'); return false; }
+          if (problem) { fail(problem); return false; }
           return true;
         }
       },
@@ -318,16 +318,27 @@
       return n ? n.value : '';
     }
 
+    // Errors are shown in the card, next to the fields they are about, rather
+    // than as a notification floating over the form.
+    var errorBox = null;
+    function fail(message) {
+      if (!errorBox) return;
+      errorBox.textContent = message;
+      errorBox.hidden = false;
+    }
+
     function draw() {
       UI.clear(root);
       var s = STEPS[step];
       var last = step === STEPS.length - 1;
+      errorBox = h('.banner.is-bad', { role: 'alert', hidden: true, style: { marginTop: '16px', marginBottom: 0 } });
       var card = h('.card', [
         h('.step-dots', { role: 'img', 'aria-label': 'Step ' + (step + 1) + ' of ' + STEPS.length },
           STEPS.map(function (_, i) { return h('.step-dot' + (i <= step ? '.is-done' : '')); })),
         h('h2', { text: s.title }),
         s.intro ? h('p', { style: { marginTop: '8px' }, text: s.intro }) : null,
         h('div', { style: { marginTop: '16px' } }, s.fields()),
+        errorBox,
         h('.card-head', { style: { marginTop: '22px', marginBottom: 0 } }, [
           step > 0 ? h('button.btn', { type: 'button', text: 'Back', onclick: function () { step--; draw(); } })
           : gate ? h('button.btn.btn-ghost', { type: 'button', text: 'Sign out', onclick: function () {
