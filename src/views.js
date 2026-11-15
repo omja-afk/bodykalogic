@@ -354,7 +354,7 @@
 
     var sessionCard = h('.card', [
       h('.card-head', [
-        h('h3', { text: "Today's session" }),
+        h('h3', { text: "Today's workout" }),
         h('.spacer'),
         h('button.btn.btn-sm.btn-primary', {
           text: session && session.completed ? 'Review' : 'Open log',
@@ -595,14 +595,14 @@
   }
 
   function exerciseRow(plan, day, di, slot, si) {
-    var best = slot.exId ? S.bestMax(slot.exId) : null;
+    var best = S.bestFor(slot);
     return h('.ex-row', [
       h('.ex-main', [
         h('.ex-name', { text: slot.name }),
         h('.ex-meta', { text: slot.sets + ' × ' + slot.reps +
           (slot.rest ? ' · ' + slot.rest + 's rest' : '') +
           (slot.weight ? ' · ' + slot.weight + (slot.weightUnit || 'kg') : '') +
-          (best ? ' · best ' + best.weight + ' kg × ' + best.reps : '') +
+          (best ? ' · best ' + (best.best.weight ? best.best.weight + ' kg × ' + best.best.reps : best.best.reps + ' reps') : '') +
           (slot.importedAs ? ' · imported as "' + slot.importedAs + '"' : '') })
       ]),
       slot.exId ? h('span.ex-pattern', { text: EXD.PATTERN_LABEL[slot.pattern] || slot.pattern }) : null,

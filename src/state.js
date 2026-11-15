@@ -30,7 +30,7 @@
       workouts: {},     // dateKey -> session
       nutrition: {},    // dateKey -> { meals: [] }
       body: {},         // dateKey -> measurements
-      maxes: {},        // exId -> { name, records: [] }
+      maxes: {},        // no longer written; kept so older data is not dropped
       settings: { onboarded: false }
     };
   }
@@ -110,8 +110,7 @@
     return !!(d.settings && d.settings.onboarded) || !!d.plan || !!d.diet ||
            Object.keys(d.workouts || {}).length > 0 ||
            Object.keys(d.nutrition || {}).length > 0 ||
-           Object.keys(d.body || {}).length > 0 ||
-           Object.keys(d.maxes || {}).length > 0;
+           Object.keys(d.body || {}).length > 0;
   }
 
   function save() {
@@ -248,62 +247,100 @@
     else delete state.nutrition[day.date];
   }
 
-  /* Epley. Accurate enough under about 10 reps, which is where maxes live.
-   * Inputs arrive as whatever a form field held, so they are coerced first —
-   * a "1" that is still a string must count as a single. */
+  /* Estimated one-rep max (Epley): the heaviest weight you could probably
+   * lift once, worked out from a set of several reps. Accurate enough under
+   * about 10 reps. Inputs arrive as whatever a form field held, so they are
+   * coerced first — a "1" that is still a string must count as a single. */
   function e1rm(weight, reps) {
     weight = Number(weight); reps = Number(reps);
-    if (!weight || !reps || weight < 0 || reps < 0) return null;
+    if (!(weight > 0) || !(reps > 0)) return null;
     if (reps === 1) return weight;
     return Math.round(weight * (1 + reps / 30) * 10) / 10;
   }
 
-  function estimate(rec) { return rec ? (Number(rec.e1rm) || e1rm(rec.weight, rec.reps) || 0) : 0; }
-
-  function recordMax(exId, name, rec) {
-    if (!state.maxes[exId]) state.maxes[exId] = { name: name, records: [] };
-    state.maxes[exId].name = name || state.maxes[exId].name;
-    state.maxes[exId].records.push(rec);
-    state.maxes[exId].records.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  /* An exercise is the same exercise across sessions if it is the same
+   * library movement, or — for one the library does not know — the same name. */
+  function liftKey(entry) {
+    return entry.exId ? entry.exId : 'name:' + String(entry.name || '').trim().toLowerCase();
   }
 
-  /* Remove one record; an exercise with none left stops being listed at all. */
-  function removeMax(exId, index) {
-    var m = state.maxes[exId];
-    if (!m) return;
-    m.records.splice(index, 1);
-    if (!m.records.length) delete state.maxes[exId];
-  }
+  /* Everything the Strength tab shows, worked out from the sets logged in the
+   * workout log. Nothing is stored: edit or delete a set on any day and every
+   * best and every chart follows.
+   *
+   * Returns one record per exercise, each with a list of the days it was
+   * logged (oldest first) and its all-time bests. */
+  function strength() {
+    var lifts = {};
+    Object.keys(state.workouts).sort().forEach(function (date) {
+      state.workouts[date].entries.forEach(function (entry) {
+        if (entry.pattern === 'cardio') return;
+        var sets = entry.sets.filter(function (s) { return Number(s.reps) > 0; });
+        if (!sets.length) return;
+        var key = liftKey(entry);
+        var lift = lifts[key] || (lifts[key] = { key: key, exId: entry.exId || null, name: entry.name, days: [] });
+        lift.name = entry.name || lift.name;
 
-  function bestMax(exId) {
-    var m = state.maxes[exId];
-    if (!m || !m.records.length) return null;
-    return m.records.reduce(function (best, r) {
-      return estimate(r) > (best ? estimate(best) : -1) ? r : best;
-    }, null);
-  }
-
-  /* After a session is marked done, promote its best set for each exercise into
-   * the maxes log when it beats the stored best, so PRs do not need entering
-   * twice. One record per exercise per session: three rising sets are one new
-   * record, not three. */
-  function harvestMaxes(session) {
-    var found = [];
-    session.entries.forEach(function (entry) {
-      if (!entry.exId || entry.pattern === 'cardio') return;
-      var top = null, topEst = 0;
-      entry.sets.forEach(function (st) {
-        var est = e1rm(st.weight, st.reps);
-        if (est && est > topEst) { top = st; topEst = est; }
+        var day = { date: date, best: null, e1rm: 0, topWeight: 0, maxReps: 0, volume: 0, sets: sets.length };
+        sets.forEach(function (s) {
+          var w = Number(s.weight) || 0, r = Number(s.reps) || 0;
+          var est = e1rm(w, r) || 0;
+          if (est > day.e1rm) { day.e1rm = est; day.best = { weight: w, reps: r }; }
+          if (w > day.topWeight) day.topWeight = w;
+          if (r > day.maxReps) day.maxReps = r;
+          day.volume += w * r;
+        });
+        // A bodyweight movement has no weight to rank by; its best set is the
+        // one with the most reps.
+        if (!day.best) {
+          var top = sets.reduce(function (a, s) { return Number(s.reps) > Number(a.reps) ? s : a; });
+          day.best = { weight: 0, reps: Number(top.reps) };
+        }
+        lift.days.push(day);
       });
-      if (!top || topEst <= estimate(bestMax(entry.exId))) return;
-      recordMax(entry.exId, entry.name, {
-        date: session.date, weight: Number(top.weight), reps: Number(top.reps),
-        e1rm: topEst, source: 'session'
-      });
-      found.push({ name: entry.name, weight: Number(top.weight), reps: Number(top.reps), e1rm: topEst });
     });
-    return found;
+
+    return Object.keys(lifts).map(function (k) {
+      var lift = lifts[k];
+      var weighted = lift.days.some(function (d) { return d.topWeight > 0; });
+      var bestDay = lift.days.reduce(function (a, d) {
+        return (weighted ? d.e1rm > a.e1rm : d.maxReps > a.maxReps) ? d : a;
+      });
+      lift.weighted = weighted;
+      lift.e1rm = bestDay.e1rm;
+      lift.best = bestDay.best;
+      lift.bestDate = bestDay.date;
+      lift.topWeight = Math.max.apply(null, lift.days.map(function (d) { return d.topWeight; }));
+      lift.maxReps = Math.max.apply(null, lift.days.map(function (d) { return d.maxReps; }));
+      lift.lastDate = lift.days[lift.days.length - 1].date;
+      return lift;
+    });
+  }
+
+  /* The all-time best for one plan slot, or null if it has never been logged. */
+  function bestFor(slot) {
+    var key = liftKey(slot);
+    return strength().filter(function (l) { return l.key === key; })[0] || null;
+  }
+
+  /* Which exercises in this session beat every earlier day's best. */
+  function newRecords(session) {
+    var before = {};
+    Object.keys(state.workouts).forEach(function (date) {
+      if (date >= session.date) return;
+      state.workouts[date].entries.forEach(function (e) {
+        var k = liftKey(e);
+        e.sets.forEach(function (s) {
+          before[k] = Math.max(before[k] || 0, e1rm(s.weight, s.reps) || 0);
+        });
+      });
+    });
+    return session.entries.filter(function (e) {
+      if (e.pattern === 'cardio') return false;
+      var best = Math.max.apply(null, [0].concat(e.sets.map(function (s) { return e1rm(s.weight, s.reps) || 0; })));
+      var k = liftKey(e);
+      return best > 0 && k in before && best > before[k];
+    }).map(function (e) { return e.name; });
   }
 
   function sessionVolume(session) {
@@ -361,10 +398,9 @@
     nutritionFor: nutritionFor,
     keepNutrition: keepNutrition,
     e1rm: e1rm,
-    recordMax: recordMax,
-    removeMax: removeMax,
-    bestMax: bestMax,
-    harvestMaxes: harvestMaxes,
+    strength: strength,
+    bestFor: bestFor,
+    newRecords: newRecords,
     sessionVolume: sessionVolume,
     nutritionTotals: nutritionTotals,
     streak: streak

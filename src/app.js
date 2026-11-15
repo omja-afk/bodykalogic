@@ -23,9 +23,9 @@
     home:      { title: 'Home',            icon: 'home',      sub: 'where everything stands today' },
     plan:      { title: 'Workout plan',    icon: 'dumbbell',  sub: 'your split, and every alternative for it' },
     diet:      { title: 'Diet plan',       icon: 'utensils',  sub: 'seven days built to your targets' },
-    log:       { title: "Today's session", icon: 'clipboard', sub: 'log sets, reps and weight' },
+    log:       { title: 'Workout log',     icon: 'clipboard', sub: 'log sets, reps and weight — today or any earlier day' },
     nutrition: { title: 'Nutrition log',   icon: 'flame',     sub: 'what you actually ate' },
-    maxes:     { title: 'Strength maxes',  icon: 'trending',  sub: 'max weight and max reps per exercise' },
+    maxes:     { title: 'Strength',        icon: 'trending',  sub: 'your bests and progress, worked out from your workout log' },
     body:      { title: 'Body',            icon: 'scale',     sub: 'weight, BMI and measurements' },
     progress:  { title: 'Progress',        icon: 'chart',     sub: 'trends, volume and consistency' },
     profile:   { title: 'Profile',         icon: 'user',      sub: 'your details, your targets and your account' }
@@ -271,11 +271,18 @@
                 box.addEventListener('change', function () { pill.classList.toggle('is-on', box.checked); });
                 return pill;
               }))]),
-            h('.hint', { text: 'Movements loading those joints are left out. Not medical advice — see a professional about a real injury.' })
+            h('.hint', { text: 'Movements loading those joints are left out of your plan.' }),
+            h('.field', { style: { marginTop: '13px' } }, [
+              h('label', { text: 'Injuries, conditions or limitations (optional)' }),
+              h('textarea', { id: 'o-health', value: answers.healthNotes || '', rows: 3,
+                placeholder: 'A dodgy shoulder, a recent surgery, something your physio said…' })
+            ]),
+            h('.hint', { text: 'A private note to yourself, kept in Profile. If you have a medical condition, persistent pain, are pregnant, or have a history of disordered eating, take your plan to a professional before following it.' })
           ];
         },
         collect: function () {
           answers.daysPerWeek = Number(val('o-days'));
+          answers.healthNotes = val('o-health').trim();
           answers.avoid = Array.prototype.slice.call(root.querySelectorAll('.check-pill input[type=checkbox]'))
             .filter(function (b) { return b.checked; })
             .map(function (b) { return b.value; });

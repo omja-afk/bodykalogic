@@ -309,13 +309,14 @@
     var totalVolume = sessions.reduce(function (a, k) { return a + S.sessionVolume(st.workouts[k]); }, 0);
     var last30 = sessions.filter(function (k) { return UI.daysBetween(k, today) <= 30; });
     var streak = S.streak();
+    var lifts = S.strength();
 
     root.appendChild(h('.grid.grid-4', [
       VI.stat('Sessions', sessions.length, '', [h('span', { text: last30.length + ' in the last 30 days' })], 'var(--series-1)'),
       VI.stat('Total volume', C.fmt(totalVolume / 1000, totalVolume < 100000 ? 1 : 0), ' t', [h('span', { text: 'weight × reps, all time' })], 'var(--series-2)'),
       VI.stat('Current streak', streak, streak === 1 ? ' day' : ' days', [h('span', { text: 'days with a session or a logged meal' })], 'var(--series-4)'),
-      VI.stat('Records', Object.keys(st.maxes).filter(function (id) { return st.maxes[id].records.length; }).length, '',
-        [h('span', { text: 'exercises with a logged max' })], 'var(--series-3)')
+      VI.stat('Exercises', lifts.length, '',
+        [h('span', { text: 'with sets logged' })], 'var(--series-3)')
     ]));
 
     /* Weight and BMI by week. Two charts, not two lines: on one scale a BMI of
@@ -400,30 +401,12 @@
       C.heatmap(host, cells, { unit: ' kg' });
     }));
 
-    /* per-exercise strength */
-    var exIds = Object.keys(st.maxes).filter(function (id) { return st.maxes[id].records.length > 1; });
-    if (exIds.length) {
-      var select = h('select', { style: { maxWidth: '240px' }, 'aria-label': 'Exercise' }, exIds.map(function (id) {
-        return h('option', { value: id, text: st.maxes[id].name });
-      }));
-      var host = h('.chart-host');
-      function draw() {
-        var recs = st.maxes[select.value].records;
-        C.line(host, {
-          height: 260, unit: ' kg', dp: 1, area: true,
-          series: [{ name: st.maxes[select.value].name, points: recs.map(function (r) {
-            return { x: UI.shortDate(r.date), y: Number(r.e1rm) || S.e1rm(r.weight, r.reps) };
-          }) }]
-        });
-      }
-      select.addEventListener('change', draw);
-      root.appendChild(h('.card', [
-        h('.card-head', [h('h3', { text: 'Strength curve' }),
-                         h('span.card-sub', { text: 'estimated one-rep max' }), h('.spacer'), select]),
-        host
-      ]));
-      setTimeout(draw, 0);
-    }
+    root.appendChild(h('.card', [h('.card-head', { style: { marginBottom: 0 } }, [
+      h('div', [h('h3', { text: 'Strength' }),
+        h('p', { style: { margin: '4px 0 0' }, text: 'Bests and estimated one-rep max for every exercise you log.' })]),
+      h('.spacer'),
+      h('button.btn.btn-sm', { type: 'button', text: 'See your strength', onclick: function () { global.App.go('maxes'); } })
+    ])]));
   };
 
   /* ============================== PROFILE =============================== */

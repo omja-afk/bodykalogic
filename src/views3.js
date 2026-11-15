@@ -1,4 +1,4 @@
-/* views3.js — nutrition log and strength maxes. */
+/* views3.js — nutrition log and the read-only strength tab. */
 (function (global) {
   'use strict';
 
@@ -280,194 +280,153 @@
     renderPhoto(); renderItems();
   }
 
-  /* =========================== STRENGTH MAXES =========================== */
+  /* ============================== STRENGTH ============================== */
+
+  /* Read-only. Everything here is worked out from the sets logged in the
+   * workout log — there is nothing to enter on this tab, and correcting a set
+   * on any day corrects every number and chart here with it. */
+
+  var selectedLift = null;   // which exercise the detail chart shows; kept across redraws
+
+  function kg(v) { return C.fmt(v, 1) + ' kg'; }
+  function setText(best) {
+    return best.weight ? C.fmt(best.weight, 1) + ' kg × ' + best.reps : best.reps + ' reps';
+  }
 
   Views.maxes = function (root) {
     UI.clear(root);
-    var st = S.get();
-    var ids = Object.keys(st.maxes).filter(function (id) { return st.maxes[id].records.length; });
-    function est(rec) { return Number(rec.e1rm) || S.e1rm(rec.weight, rec.reps) || 0; }
+    var lifts = S.strength();
+    var today = UI.todayKey();
 
     root.appendChild(h('.card', [
       h('.card-head', [
-        h('h3', { text: 'Personal records' }),
-        h('.spacer'),
-        UI.button('.btn-sm.btn-primary', 'plus', 'Log a max', { onclick: function () { openMaxLogger(); } })
+        h('h3', { text: 'Your strength' }),
+        h('span.card-sub', { text: 'from every set in your workout log' })
       ]),
-      h('p', { text: 'Anything you log in a session that beats your stored best is added here automatically when you mark the session complete. You can also record a one-rep max or an AMRAP set directly.' })
+      h('p', { style: { marginBottom: 0 } }, [
+        'Nothing to fill in here. Log your sets in the ', h('b', { text: 'Workout log' }),
+        ' and your bests and progress are worked out for you. ',
+        h('b', { text: 'Estimated 1RM' }),
+        ' (one-rep max) is the heaviest weight you could probably lift for a single rep, ' +
+        'calculated from your best set — so a set of 8 and a heavy single can be compared on the same scale.'
+      ])
     ]));
 
-    if (!ids.length) {
-      root.appendChild(VI.emptyState('No maxes recorded yet',
-        'Log a heavy single, an AMRAP set, or just complete a session — new bests are picked up from your sets.',
-        'Log a max', function () { openMaxLogger(); }));
+    if (!lifts.length) {
+      root.appendChild(VI.emptyState('No sets logged yet',
+        'Log a session in the workout log — weight and reps for each set — and your strength charts appear here.',
+        'Open the workout log', function () { global.App.go('log'); }));
       return;
     }
 
-    /* best-per-exercise table */
-    var rows = ids.map(function (id) {
-      var m = st.maxes[id];
-      var best = S.bestMax(id);
-      var maxReps = m.records.reduce(function (a, r) { return Math.max(a, Number(r.reps) || 0); }, 0);
-      var maxWeight = m.records.reduce(function (a, r) { return Math.max(a, Number(r.weight) || 0); }, 0);
-      return { id: id, name: m.name, best: best, maxReps: maxReps, maxWeight: maxWeight, count: m.records.length };
-    }).sort(function (a, b) { return est(b.best) - est(a.best); });
-
-    var table = h('table.table', [h('thead', [h('tr', [
-      h('th', { text: 'Exercise' }),
-      h('th.num', { text: 'Max weight' }),
-      h('th.num', { text: 'Max reps' }),
-      h('th.num', { text: 'Best set' }),
-      h('th.num', { text: 'Est. 1RM' }),
-      h('th', { text: 'Set on' }), h('th', [h('span.sr-only', { text: 'History' })])
-    ])])]);
-    var tbody = h('tbody');
-    rows.forEach(function (r) {
-      tbody.appendChild(h('tr', [
-        h('td', { text: r.name }),
-        h('td.num', { text: r.maxWeight ? r.maxWeight + ' kg' : '—' }),
-        h('td.num', { text: r.maxReps || '—' }),
-        h('td.num', { text: r.best.weight + ' kg × ' + r.best.reps }),
-        h('td.num', [h('b', { text: C.fmt(est(r.best), 1) + ' kg' })]),
-        h('td', { text: UI.shortDate(r.best.date) }),
-        h('td', [UI.button('.btn-sm', 'clock', 'History', { onclick: function () { openMaxHistory(r.id); } })])
-      ]));
+    var weighted = lifts.filter(function (l) { return l.weighted; });
+    var monthAgo = UI.addDays(today, -30);
+    var recent = lifts.filter(function (l) {
+      // a best set in the last 30 days that beat everything before it
+      if (l.bestDate < monthAgo) return false;
+      return l.days.some(function (d) { return d.date < l.bestDate; });
     });
-    table.appendChild(tbody);
-    root.appendChild(h('.card', [h('.table-wrap', [table])]));
+    var strongest = weighted.slice().sort(function (a, b) { return b.e1rm - a.e1rm; })[0];
 
-    /* strength curves for the four most-tracked lifts */
-    var top = rows.slice().sort(function (a, b) { return b.count - a.count; }).slice(0, 4);
+    root.appendChild(h('.grid.grid-3', { style: { marginTop: '16px' } }, [
+      VI.stat('Exercises tracked', lifts.length, '', [h('span', { text: 'with sets logged' })], 'var(--series-1)'),
+      VI.stat('New bests', recent.length, '', [h('span', { text: 'in the last 30 days' })], 'var(--series-3)'),
+      VI.stat('Strongest lift', strongest ? C.fmt(strongest.e1rm, 1) : '—', strongest ? ' kg' : '',
+        [h('span', { text: strongest ? strongest.name + ', estimated 1RM' : 'log a weighted set' })], 'var(--series-4)')
+    ]));
+
+    /* the most-logged weighted lifts, together */
+    var top = weighted.slice().sort(function (a, b) { return b.days.length - a.days.length; }).slice(0, 4);
     if (top.length) {
-      root.appendChild(VI.chartCard('Estimated 1RM over time', 'your four most-tracked lifts', function (host) {
-        var allDates = [];
-        top.forEach(function (r) {
-          st.maxes[r.id].records.forEach(function (rec) {
-            if (allDates.indexOf(rec.date) === -1) allDates.push(rec.date);
-          });
-        });
-        allDates.sort();
+      root.appendChild(VI.chartCard('Estimated 1RM over time',
+        'your ' + (top.length === 1 ? 'most-logged lift' : top.length + ' most-logged lifts'), function (host) {
+        var dates = [];
+        top.forEach(function (l) { l.days.forEach(function (d) { if (dates.indexOf(d.date) === -1) dates.push(d.date); }); });
+        dates.sort();
         C.line(host, {
-          height: 300,
-          unit: ' kg', dp: 1,
-          series: top.map(function (r) {
+          height: 300, unit: ' kg', dp: 1,
+          series: top.map(function (l) {
             var byDate = {};
-            st.maxes[r.id].records.forEach(function (rec) {
-              var v = est(rec);
-              if (!byDate[rec.date] || v > byDate[rec.date]) byDate[rec.date] = v;
-            });
-            var running = null;
-            return {
-              name: r.name,
-              points: allDates.map(function (d) {
-                if (byDate[d] != null) running = byDate[d];
-                return { x: UI.shortDate(d), y: running };
-              })
-            };
+            l.days.forEach(function (d) { byDate[d.date] = d.e1rm; });
+            return { name: l.name, points: dates.map(function (d) {
+              return { x: UI.shortDate(d), y: byDate[d] != null ? byDate[d] : null };
+            }) };
           })
         });
       }));
     }
+
+    /* one exercise in detail */
+    var ordered = lifts.slice().sort(function (a, b) { return b.lastDate < a.lastDate ? -1 : b.lastDate > a.lastDate ? 1 : 0; });
+    if (!selectedLift || !lifts.some(function (l) { return l.key === selectedLift; })) selectedLift = ordered[0].key;
+    var select = h('select', { 'aria-label': 'Exercise', style: { maxWidth: '260px' },
+      onchange: function (e) { selectedLift = e.target.value; drawDetail(); } },
+      ordered.map(function (l) { return h('option', { value: l.key, selected: l.key === selectedLift, text: l.name }); }));
+    var detailHost = h('.chart-host');
+    var detailNote = h('.hint');
+    function drawDetail() {
+      var l = lifts.filter(function (x) { return x.key === selectedLift; })[0];
+      var labels = l.days.map(function (d) { return UI.shortDate(d.date); });
+      if (l.weighted) {
+        C.line(detailHost, { height: 260, unit: ' kg', dp: 1, series: [
+          { name: 'Estimated 1RM', points: l.days.map(function (d, i) { return { x: labels[i], y: d.e1rm || null }; }) },
+          { name: 'Heaviest set', points: l.days.map(function (d, i) { return { x: labels[i], y: d.topWeight || null }; }) }
+        ] });
+        detailNote.textContent = 'Best: ' + setText(l.best) + ' on ' + UI.prettyDate(l.bestDate) +
+          ' — an estimated 1RM of ' + kg(l.e1rm) + '. Logged on ' + l.days.length + ' day' + (l.days.length === 1 ? '' : 's') + '.';
+      } else {
+        C.line(detailHost, { height: 260, unit: ' reps', dp: 0, area: true, series: [
+          { name: 'Most reps in a set', points: l.days.map(function (d, i) { return { x: labels[i], y: d.maxReps }; }) }
+        ] });
+        detailNote.textContent = 'Bodyweight — tracked by reps. Best: ' + l.maxReps + ' reps on ' +
+          UI.prettyDate(l.bestDate) + '. Logged on ' + l.days.length + ' day' + (l.days.length === 1 ? '' : 's') + '.';
+      }
+    }
+    root.appendChild(h('.card', [
+      h('.card-head', [h('h3', { text: 'Exercise progress' }), h('.spacer'), select]),
+      detailHost,
+      detailNote
+    ]));
+    setTimeout(drawDetail, 0);
+
+    /* every exercise's bests */
+    var rows = lifts.slice().sort(function (a, b) {
+      return (b.weighted - a.weighted) || (b.e1rm - a.e1rm) || (b.maxReps - a.maxReps);
+    });
+    var table = h('table.table', [h('thead', [h('tr', [
+      h('th', { text: 'Exercise' }),
+      h('th.num', { text: 'Heaviest' }),
+      h('th.num', { text: 'Most reps' }),
+      h('th.num', { text: 'Best set' }),
+      h('th.num', { text: 'Est. 1RM' }),
+      h('th', { text: 'Best on' }),
+      h('th.num', { text: 'Days logged' })
+    ])])]);
+    var tbody = h('tbody');
+    rows.forEach(function (l) {
+      var tr = h('tr.is-clickable', { tabindex: '0', title: 'Show ' + l.name + ' in the chart above' }, [
+        h('td', { text: l.name }),
+        h('td.num', { text: l.topWeight ? kg(l.topWeight) : '—' }),
+        h('td.num', { text: l.maxReps }),
+        h('td.num', { text: setText(l.best) }),
+        h('td.num', [l.weighted ? h('b', { text: kg(l.e1rm) }) : '—']),
+        h('td', { text: UI.shortDate(l.bestDate) }),
+        h('td.num', { text: l.days.length })
+      ]);
+      function pick() {
+        selectedLift = l.key; select.value = l.key; drawDetail();
+        detailHost.closest('.card').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      tr.addEventListener('click', pick);
+      tr.addEventListener('keydown', function (e) { if (e.key === 'Enter') pick(); });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    root.appendChild(h('.card', [
+      h('.card-head', [h('h3', { text: 'All your bests' }), h('span.card-sub', { text: 'select a row to chart it' })]),
+      h('.table-wrap', [table])
+    ]));
   };
-
-  function openMaxLogger() {
-    var st = S.get();
-    // Everything the current setup allows, plus whatever is in the plan — an
-    // imported plan can hold movements the equipment filter would hide.
-    var seen = {};
-    var pool = EXD.pool(st.plan ? st.plan.equipment : st.profile.equipment, []).slice();
-    pool.forEach(function (e) { seen[e.id] = 1; });
-    (st.plan ? st.plan.days : []).forEach(function (d) {
-      d.slots.forEach(function (slot) {
-        var e = slot.exId && EXD.byId(slot.exId);
-        if (e && !seen[e.id]) { seen[e.id] = 1; pool.push(e); }
-      });
-    });
-    pool = pool.filter(function (e) { return e.pattern !== 'cardio'; })
-               .sort(function (a, b) { return a.name.localeCompare(b.name); });
-
-    var select = h('select', pool.map(function (e) { return h('option', { value: e.id, text: e.name }); }));
-    var weight = h('input', { type: 'number', inputmode: 'decimal', step: 0.5, min: 0, placeholder: 'kg' });
-    var reps = h('input', { type: 'number', inputmode: 'numeric', min: 1, max: 100, value: 1 });
-    var date = h('input', { type: 'date', value: UI.todayKey(), max: UI.todayKey() });
-    var note = h('input', { placeholder: 'belt, spotter, felt easy…' });
-    var preview = h('.hint');
-
-    function updatePreview() {
-      var e = S.e1rm(weight.value, reps.value);
-      preview.textContent = e ? 'Estimated one-rep max: ' + C.fmt(e, 1) + ' kg (Epley).' : '';
-    }
-    weight.addEventListener('input', updatePreview);
-    reps.addEventListener('input', updatePreview);
-
-    UI.modal({
-      title: 'Log a max',
-      body: [
-        h('.field', [h('label', { text: 'Exercise' }), select]),
-        h('.field-row', [
-          h('div', [h('label', { text: 'Weight (kg)' }), weight]),
-          h('div', [h('label', { text: 'Reps' }), reps]),
-          h('div', [h('label', { text: 'Date' }), date])
-        ]),
-        preview,
-        h('.field', [h('label', { text: 'Note (optional)' }), note]),
-        h('.hint', { text: 'For a max-reps set, enter the weight and how many you got — the estimated one-rep max is worked out from both, so heavy singles and rep-outs sit on the same scale.' })
-      ],
-      actions: [
-        { label: 'Cancel' },
-        { label: 'Save', kind: 'primary', onClick: function () {
-          var w = Number(weight.value), r = Math.round(Number(reps.value));
-          if (!(w > 0) || !(r > 0)) { UI.toast('Enter both a weight and a rep count.', 'bad'); return false; }
-          if (r > 100) { UI.toast('That is a lot of reps — enter 100 or fewer.', 'bad'); return false; }
-          if (!UI.validPastKey(date.value)) { UI.toast('Choose a date that is today or earlier.', 'bad'); return false; }
-          var ex = EXD.byId(select.value);
-          if (!ex) return false;
-          S.recordMax(ex.id, ex.name, { date: date.value, weight: w, reps: r,
-                                        e1rm: S.e1rm(w, r), note: note.value.trim(), source: 'manual' });
-          S.save(); redraw();
-          UI.toast('Max logged for ' + ex.name + '.', 'good');
-        } }
-      ]
-    });
-    updatePreview();
-  }
-
-  function openMaxHistory(exId) {
-    var m = S.get().maxes[exId];
-    if (!m) return;
-    var host = h('.table-wrap');
-    var close;
-
-    // Redrawn in place after a delete. The list used to stay as it was, so the
-    // removed row was still on screen and the next ✕ took out the wrong record.
-    function draw() {
-      UI.clear(host);
-      var table = h('table.table', [h('thead', [h('tr', [
-        h('th', { text: 'Date' }), h('th.num', { text: 'Weight' }), h('th.num', { text: 'Reps' }),
-        h('th.num', { text: 'Est. 1RM' }), h('th', { text: 'Source' }), h('th', [h('span.sr-only', { text: 'Remove' })])
-      ])])]);
-      var tbody = h('tbody');
-      m.records.slice().reverse().forEach(function (r, i) {
-        var realIndex = m.records.length - 1 - i;
-        tbody.appendChild(h('tr', [
-          h('td', { text: UI.shortDate(r.date) }),
-          h('td.num', { text: r.weight + ' kg' }),
-          h('td.num', { text: r.reps }),
-          h('td.num', { text: C.fmt(Number(r.e1rm) || S.e1rm(r.weight, r.reps), 1) + ' kg' }),
-          h('td', { text: r.source === 'session' ? 'From a session' : 'Entered' + (r.note ? ' — ' + r.note : '') }),
-          h('td', [UI.button('.btn-sm.btn-ghost.btn-danger', 'x', null, { title: 'Remove this record', onclick: function () {
-            S.removeMax(exId, realIndex); S.save(); redraw();
-            if (S.get().maxes[exId]) draw(); else close();
-          } })])
-        ]));
-      });
-      table.appendChild(tbody);
-      host.appendChild(table);
-    }
-
-    draw();
-    close = UI.modal({ title: m.name + ' — history', body: host });
-  }
 
   global.Views = Views;
 

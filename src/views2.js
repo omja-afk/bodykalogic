@@ -499,6 +499,8 @@
         h('button.btn.btn-sm', { type: 'button', text: '‹ Previous day', onclick: function () { go(UI.addDays(dateKey, -1)); } }),
         dateKey < today ? h('button.btn.btn-sm', { type: 'button', text: 'Next day ›', onclick: function () { go(UI.addDays(dateKey, 1)); } }) : null,
         dateKey < today ? h('button.btn.btn-sm', { type: 'button', text: 'Today', onclick: function () { go(today); } }) : null,
+        h('input.log-date', { type: 'date', value: dateKey, max: today, 'aria-label': 'Go to a date',
+          onchange: function (e) { if (UI.validPastKey(e.target.value)) go(e.target.value); } }),
         picker
       ]),
       volumeLine
@@ -589,11 +591,11 @@
           session.completed ? 'Completed — reopen' : 'Mark session complete', {
             onclick: function () {
               session.completed = !session.completed;
-              var prs = session.completed ? S.harvestMaxes(session) : [];
+              var prs = session.completed ? S.newRecords(session) : [];
               keep(); redraw();
               if (session.completed) {
                 UI.toast(prs.length
-                  ? 'Session done — ' + prs.length + ' new personal record' + (prs.length > 1 ? 's' : '') + ' logged.'
+                  ? 'Session done — new best on ' + prs.join(', ') + '.'
                   : 'Session marked complete.', 'good');
               }
             }

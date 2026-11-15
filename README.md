@@ -93,11 +93,13 @@ Confirm email**. Passwords must be at least 8 characters.
   top that re-equips the whole plan. Generated, imported, or written by hand.
 - **Diet plan** — seven distinct days built to your calorie and protein targets, with
   diet and cuisine controls at the top and an alternative list on every meal.
-- **Today's session** — log sets, reps, weight and RPE against the day's planned session.
+- **Workout log** — log sets, reps, weight and RPE against the day's planned session, for
+  today or any earlier day (previous/next, or jump to a date).
 - **Nutrition log** — tick off planned meals or log one from a photo and portions.
-- **Strength maxes** — max weight and max reps per exercise, estimated one-rep max
-  (Epley), full history, and strength curves. New bests are picked up automatically
-  from any session you mark complete.
+- **Strength** — read-only. Every best is worked out from the sets in the workout log:
+  heaviest weight, most reps, best set, and estimated one-rep max (Epley:
+  weight × (1 + reps ÷ 30)) per exercise, with charts over time. Correcting a set on any
+  day corrects everything here. Bodyweight movements are tracked by reps.
 - **Body** — weight, body fat, and tape measurements, with BMI computed for you.
 - **Progress** — weekly weight and BMI trends, training volume, calories against
   target, per-exercise strength curves and a 12-week consistency heatmap.
