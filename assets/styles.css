@@ -479,6 +479,8 @@ button.check-pill:hover { border-color: var(--accent); color: var(--ink); }
 abbr[title] { text-decoration: underline dotted; cursor: help; }
 .set-table input { width: 92px; max-width: 100%; }
 .set-table td:first-child { width: 44px; color: var(--ink-muted); }
+.set-table td.num { white-space: nowrap; color: var(--ink-2); }
+.session-length { max-width: 160px; }
 .working { margin: 0; font-size: .82rem; color: var(--ink-2); }
 .working b { color: var(--ink); }
 .card-danger { border-color: rgba(208, 59, 59, 0.3); }

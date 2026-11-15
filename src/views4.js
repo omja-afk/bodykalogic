@@ -373,6 +373,26 @@
       });
     }));
 
+    /* energy burnt in training per week — the one measure that counts a run, a
+     * bodyweight circuit and a heavy leg day on the same scale */
+    root.appendChild(VI.chartCard('Calories burnt by week', 'estimated from your workout log', function (host) {
+      var weeks = {};
+      Object.keys(st.workouts).sort().forEach(function (k) {
+        var kcal = S.burnOn(k);
+        if (!kcal) return;
+        var wk = UI.weekKey(k);
+        weeks[wk] = (weeks[wk] || 0) + kcal;
+      });
+      var order = Object.keys(weeks).sort().slice(-16);
+      C.bar(host, {
+        height: 260, unit: ' kcal',
+        bars: order.map(function (wk) {
+          return { label: wk.split('-W')[1] ? 'W' + wk.split('-W')[1] : wk, value: weeks[wk], series: 3 };
+        }),
+        empty: 'Log a session and the calories it burnt show up here.'
+      });
+    }));
+
     /* calories vs target */
     root.appendChild(VI.chartCard('Calories logged', 'last 21 days against target', function (host) {
       var t = S.targets();

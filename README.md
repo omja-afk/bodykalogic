@@ -85,7 +85,7 @@ Confirm email**. Passwords must be at least 8 characters.
 ## Tabs
 
 - **Home** — the entrance. Opens on your dashboard: weight, BMI on a banded scale,
-  protein against target, today's session, today's meals, and weight and BMI trends
+  protein against target, calories burnt today, today's session, today's meals, and weight and BMI trends
   side by side. Before you have a profile it leads with a one-card setup instead, and
   the rest of the app stays reachable while you decide. A line from a library of 161
   quotes — training and life positivity — sits at the top, a new one on every visit.
@@ -93,16 +93,21 @@ Confirm email**. Passwords must be at least 8 characters.
   top that re-equips the whole plan. Built for you or imported.
 - **Diet plan** — seven distinct days built to your calorie and protein targets, with
   diet and cuisine controls at the top and an alternative list on every meal.
-- **Workout log** — log sets, reps, weight and RPE against the day's planned session, for
-  today or any earlier day (previous/next, or jump to a date).
+- **Workout log** — log the day's planned session, for today or any earlier day
+  (previous/next, or jump to a date). Each movement asks for what it is measured in:
+  weight × reps for a loaded lift, reps for bodyweight and bands (added weight on
+  request), seconds for a hold, and minutes for conditioning — plus distance where it
+  covers ground, from which the pace is worked out. The session ends in a summary: time,
+  an estimate of the calories burnt, volume and sets.
 - **Nutrition log** — tick off planned meals or log one from a photo and portions.
 - **Strength** — read-only. Every best is worked out from the sets in the workout log:
   heaviest weight, most reps, best set, and estimated one-rep max (Epley:
   weight × (1 + reps ÷ 30)) per exercise, with charts over time. Correcting a set on any
   day corrects everything here. Bodyweight movements are tracked by reps.
 - **Body** — weight, body fat, and tape measurements, with BMI computed for you.
-- **Progress** — weekly weight and BMI trends, training volume, calories against
-  target, per-exercise strength curves and a 12-week consistency heatmap.
+- **Progress** — weekly weight and BMI trends, training volume, calories burnt in
+  training, calories eaten against target, per-exercise strength curves and a 12-week
+  consistency heatmap.
 - **Profile** — account (sync, change password, sign out), your measurements, primary goal, training setup and food
   preferences, plus an **Energy** panel that shows how your targets are reached
   (BMR → activity → goal) and lets you overrule it: if you have tracked your own
@@ -206,6 +211,13 @@ goal, experience, days per week, available equipment, injuries).
   the menu is built to actually reach it; fat is held at ~25% of calories and carbs take
   the remainder. Respects vegetarian, eggetarian, vegan and non-vegetarian preferences,
   and Indian, global or mixed cuisine.
+
+- **Calories burnt** — MET × bodyweight (kg) × hours, with MET values from the
+  Compendium of Physical Activities. Conditioning uses the minutes logged and, for
+  walking and running, the pace. Lifting is timed from its sets and the plan's rests
+  (or the session length, if you enter one) at 3.5 MET, rising with logged RPE. It is an
+  estimate, good to about a fifth either way, and it is shown rather than added to the
+  day's food target — the activity level behind that target already counts training.
 
 Numbers come from standard equations and are a starting point for a healthy adult, not
 medical advice. If you are pregnant, managing a condition, or coming back from an injury,

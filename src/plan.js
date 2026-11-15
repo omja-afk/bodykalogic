@@ -31,6 +31,17 @@
     return ex.timed ? (HOLD[goal] || HOLD.muscle) : p.reps[0] + '-' + p.reps[1];
   }
 
+  /* Sets, reps and rest for a movement under a goal. Conditioning is one
+   * stretch of minutes — "3 × 10-15" of a brisk walk means nothing. */
+  function rxFor(ex, goal) {
+    var rx = GOAL_RX[goal] || GOAL_RX.muscle;
+    if (ex.pattern === 'cardio') {
+      return { sets: 1, reps: rx.cardio === 2 ? '20 min' : '12 min', rest: 0 };
+    }
+    var p = ex.compound ? rx.compound : rx.iso;
+    return { sets: p.sets, reps: repsFor(ex, p, goal), rest: p.rest };
+  }
+
   /* Default weekday for each training day, 0 = Sunday. Spread so the rest days
    * fall between sessions rather than all landing at the end of the week. */
   var WEEK_SCHEDULE = {
@@ -121,13 +132,13 @@
         var ex = pickFor(pattern, profileId, avoid, used);
         if (!ex) return null;
         used.push(ex.id);
-        var p = ex.compound ? rx.compound : rx.iso;
+        var p = rxFor(ex, goal);
         return {
           exId: ex.id,
           name: ex.name,
           pattern: pattern,
           sets: p.sets,
-          reps: repsFor(ex, p, goal),
+          reps: p.reps,
           rest: p.rest,
           note: ''
         };
@@ -140,13 +151,14 @@
         var cardioPool = EX.pool(profileId, avoid).filter(function (e) { return e.pattern === 'cardio'; });
         var cardio = cardioPool.length ? cardioPool[dayIdx % cardioPool.length] : null;
         if (cardio) {
+          var cp = rxFor(cardio, goal);
           slots.push({
             exId: cardio.id,
             name: cardio.name,
             pattern: 'cardio',
-            sets: 1,
-            reps: (rx.cardio === 2 ? '20 min' : '12 min'),
-            rest: 0,
+            sets: cp.sets,
+            reps: cp.reps,
+            rest: cp.rest,
             note: 'Finisher — steady, conversational pace'
           });
         }
@@ -205,13 +217,14 @@
     slot.pattern = slot.pattern === 'cardio' ? 'cardio' : (was ? slot.pattern : ex.pattern);
     slot.importedAs = null;
     // Prescription follows the movement: an isolation swap for a compound should
-    // not inherit 5x5. Like for like keeps the sets and reps already there —
-    // they may be the user's own, or their trainer's.
-    var rx = GOAL_RX[plan.goal] || GOAL_RX.muscle;
-    if (slot.pattern !== 'cardio' && (!was || was.compound !== ex.compound || was.timed !== ex.timed)) {
-      var p = ex.compound ? rx.compound : rx.iso;
+    // not inherit 5x5, and a lift swapped for a walk should not keep its reps.
+    // Like for like keeps the sets and reps already there — they may be the
+    // user's own, or their trainer's.
+    if (!was || was.measure !== ex.measure ||
+        (ex.measure !== 'cardio' && was.compound !== ex.compound)) {
+      var p = rxFor(ex, plan.goal);
       slot.sets = p.sets;
-      slot.reps = repsFor(ex, p, plan.goal);
+      slot.reps = p.reps;
       slot.rest = p.rest;
     }
     plan.updatedAt = Date.now();
@@ -250,6 +263,7 @@
   global.PlanGen = {
     GOAL_RX: GOAL_RX,
     repsFor: repsFor,
+    rxFor: rxFor,
     generate: generate,
     alternativesForSlot: alternativesForSlot,
     applySwap: applySwap,

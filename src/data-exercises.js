@@ -561,9 +561,14 @@
    *         'bodyweight' — your own body is the load; extra weight (a vest, a
    *                        dip belt) is optional
    *         'band'       — resistance from a band, which has no kilogram figure
+   *         'none'       — conditioning: there is nothing to load
    *   timed  true for holds, hangs, planks and carries, which are measured in
    *          seconds rather than reps. Variants that move ("Plank Shoulder Tap",
    *          "Hanging Leg Raise") are counted in reps.
+   *   measure  what a set is counted in, which is what the log's columns follow:
+   *         'reps'   — repetitions
+   *         'hold'   — seconds held (the same thing as `timed`)
+   *         'cardio' — minutes, and distance where the movement covers ground
    */
   var LOADED = ['bb', 'db', 'mc', 'cb', 'kb'];
   function loadOf(equip) {
@@ -578,7 +583,98 @@
            !/(jack|tap|reach|pull-through|dip|rock|raise|march)/i.test(name);
   }
 
+  /* Conditioning, by name: how hard it is and whether it covers distance.
+   *
+   *   met   metabolic equivalent — energy cost as a multiple of resting. Figures
+   *         are from the Compendium of Physical Activities (Ainsworth et al.,
+   *         2011), taking the moderate entry where it lists several, because a
+   *         finisher includes the pauses. Movements it does not list are placed
+   *         beside the closest thing it does.
+   *   dist  'foot'  — walking and running: distance gives a pace (min/km), and
+   *                   the pace sets the MET, since a jog costs twice a stroll
+   *         'speed' — bike, rower, elliptical: distance gives km/h, shown but not
+   *                   used for energy; resistance matters more than speed there
+   *   hill  multiplier for walking on a gradient
+   */
+  var CARDIO = {
+    'Treadmill Incline Walk':     { met: 6.0, dist: 'foot', hill: 1.4 },
+    'Treadmill Run':              { met: 8.3, dist: 'foot' },
+    'Brisk Walk / Jog':           { met: 5.0, dist: 'foot' },
+    'Stationary Bike':            { met: 7.0, dist: 'speed' },
+    'Assault Bike Intervals':     { met: 8.8, dist: 'speed' },
+    'Rowing Machine':             { met: 7.0, dist: 'speed' },
+    'Elliptical':                 { met: 5.0, dist: 'speed' },
+    'Ski Erg':                    { met: 6.8, dist: 'speed' },
+    'Stair Climber':              { met: 9.0 },
+    'Sled Drag':                  { met: 7.0 },
+    'Battle Ropes':               { met: 8.0 },
+    'Burpee':                     { met: 8.0 },
+    'Half Burpee':                { met: 6.5 },
+    'Jump Rope':                  { met: 8.8 },
+    'High Knees':                 { met: 8.0 },
+    'Butt Kicks':                 { met: 7.0 },
+    'Jumping Jacks':              { met: 8.0 },
+    'Shadow Boxing':              { met: 5.5 },
+    'Bear Crawl':                 { met: 6.0 },
+    'Skater Hops':                { met: 7.0 },
+    'Step-Up Cardio':             { met: 6.5 },
+    'Kettlebell Swing Intervals': { met: 8.0 },
+    'Band Sprint Drive':          { met: 8.0 },
+    'Stair Sprints':              { met: 10.0 },
+    'Band March in Place':        { met: 4.0 },
+    'Squat to Press (Band)':      { met: 6.0 },
+    'Mountain Climber Sprint':    { met: 8.0 },
+    'Inchworm Walkout':           { met: 4.0 },
+    'Tuck Jump':                  { met: 8.0 },
+    'Lateral Shuffle':            { met: 7.0 },
+    'Plank Jack':                 { met: 7.0 },
+    'Star Jump':                  { met: 8.0 }
+  };
+  var CARDIO_DEFAULT = { met: 7.0 };
+
+  /* A line from an imported plan that the library does not know. "Running",
+   * "Cycling 30 min" and "Evening walk" are still conditioning, and are still
+   * logged in minutes — but "Walking Lunge" and "Farmer's Walk" are not. */
+  var CARDIO_WORDS = /\b(walk|walking|jog|jogging|run|running|sprints?|treadmill|cycle|cycling|bike|biking|spin|swim|swimming|rowing|rower|elliptical|cross[\s-]?trainer|skipping|jump rope|stairs?|hiit|tabata|cardio|zumba|aerobics|hike|hiking|yoga)\b/i;
+  var NOT_CARDIO = /\b(lunge|farmer|carry|monster|crab|duck|press|curl|raise|squat)\b/i;
+  var GUESSES = [
+    [/\b(yoga|pilates|stretch|stretching|mobility|foam)\b/i, { met: 2.5 }],
+    [/\b(walk|walking|hike|hiking)\b/i,          { met: 3.8, dist: 'foot' }],
+    [/\b(jog|jogging)\b/i,                       { met: 7.0, dist: 'foot' }],
+    [/\b(run|running|sprints?|treadmill)\b/i,    { met: 8.3, dist: 'foot' }],
+    [/\b(cycle|cycling|bike|biking|spin)\b/i,    { met: 7.0, dist: 'speed' }],
+    [/\b(swim|swimming)\b/i,                     { met: 6.0, dist: 'speed' }],
+    [/\b(rowing|rower)\b/i,                      { met: 7.0, dist: 'speed' }],
+    [/\b(elliptical|cross[\s-]?trainer)\b/i,     { met: 5.0, dist: 'speed' }],
+    [/\b(skipping|jump rope|stairs?)\b/i,        { met: 8.8 }],
+    [/\b(hiit|tabata)\b/i,                       { met: 8.0 }]
+  ];
+  function cardioName(name) { return CARDIO_WORDS.test(name) && !NOT_CARDIO.test(name); }
+  function guessCardio(name) {
+    for (var i = 0; i < GUESSES.length; i++) if (GUESSES[i][0].test(name)) return GUESSES[i][1];
+    return { met: 6.0 };
+  }
+
+  /* Walking and running: MET against speed in km/h (Compendium, level ground).
+   * Between the listed speeds it is read off a straight line. */
+  var FOOT_MET = [[2.0, 2.0], [3.2, 2.8], [4.0, 3.0], [4.8, 3.5], [5.6, 4.3], [6.4, 5.0], [7.2, 7.0],
+                  [8.0, 8.3], [9.7, 9.8], [11.3, 11.0], [12.9, 11.8], [14.5, 12.8], [16.1, 14.5]];
+  function footMet(kmh) {
+    var t = FOOT_MET;
+    if (kmh <= t[0][0]) return t[0][1];
+    for (var i = 1; i < t.length; i++) {
+      if (kmh <= t[i][0]) {
+        var a = t[i - 1], b = t[i];
+        return a[1] + (b[1] - a[1]) * (kmh - a[0]) / (b[0] - a[0]);
+      }
+    }
+    // Past the end of the table is a typing slip far more often than a sprint.
+    return t[t.length - 1][1];
+  }
+
   var EXERCISES = E.map(function (row, i) {
+    var cardio = row[1] === 'cardio';
+    var timed = !cardio && timedName(row[0]);
     return {
       id: 'ex' + i,
       name: row[0],
@@ -587,8 +683,10 @@
       equip: row[3],
       tags: row[4],
       compound: !!row[5],
-      load: loadOf(row[3]),
-      timed: timedName(row[0])
+      load: cardio ? 'none' : loadOf(row[3]),
+      timed: timed,
+      measure: cardio ? 'cardio' : timed ? 'hold' : 'reps',
+      cardio: cardio ? (CARDIO[row[0]] || CARDIO_DEFAULT) : null
     };
   });
 
@@ -709,13 +807,37 @@
     },
     available: available,
 
-    /* How to measure an entry in a plan or a log. A movement the library does
-     * not know is assumed to be loaded, with weight optional, and timed if its
-     * name says so. */
+    /* How to measure an entry in a plan or a log: { load, timed, measure, dist }.
+     *
+     * A movement the library does not know is read from what the plan says
+     * about it. Prescribed in minutes, or named like conditioning, it is
+     * conditioning; otherwise it is assumed to be loaded, with weight optional,
+     * and a hold if its name or its prescription ("3 × 45 sec") says so. */
     kindOf: function (entry) {
       var ex = (entry && entry.exId && byId[entry.exId]) || null;
-      if (ex) return { load: ex.load, timed: ex.timed };
-      return { load: 'weight', timed: timedName(String((entry && entry.name) || '')) };
+      if (ex) {
+        return { load: ex.load, timed: ex.timed, measure: ex.measure,
+                 dist: ex.cardio ? ex.cardio.dist || null : null };
+      }
+      var name = String((entry && entry.name) || '');
+      var target = String((entry && (entry.targetReps != null ? entry.targetReps : entry.reps)) || '');
+      if (/\d\s*min/i.test(target) || cardioName(name) || (entry && entry.pattern === 'cardio')) {
+        return { load: 'none', timed: false, measure: 'cardio', dist: guessCardio(name).dist || null };
+      }
+      var timed = timedName(name) || /\d\s*s(ec|econds?|ecs)?\b/i.test(target);
+      return { load: 'weight', timed: timed, measure: timed ? 'hold' : 'reps', dist: null };
+    },
+
+    /* The MET for a stretch of conditioning. On foot, a distance turns the
+     * guess into a measurement: the pace says whether it was a walk or a run. */
+    cardioMet: function (entry, minutes, km) {
+      var ex = (entry && entry.exId && byId[entry.exId]) || null;
+      var c = (ex && ex.cardio) || guessCardio(String((entry && entry.name) || ''));
+      minutes = Number(minutes); km = Number(km);
+      if (c.dist === 'foot' && minutes > 0 && km > 0) {
+        return footMet(km / (minutes / 60)) * (c.hill || 1);
+      }
+      return c.met;
     },
     profileHas: profileHas,
     pool: pool,

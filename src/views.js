@@ -131,7 +131,14 @@
     var t = ready ? S.targets() : null;
     var today = UI.todayKey();
     var totals = S.nutritionTotals(today);
-    var sessions = Object.keys(st.workouts).filter(function (k) { return st.workouts[k].completed; }).length;
+    // Energy burnt in whatever has been logged today, finished or not, and over
+    // the week ending today.
+    var burnt = S.burnOn(today), burntWeek = S.burnOver(today, 7);
+    var weekSessions = 0;
+    for (var d = 0; d < 7; d++) {
+      var ws = st.workouts[UI.addDays(today, -d)];
+      if (ws && S.sessionBurn(ws).logged) weekSessions++;
+    }
 
     // Change in weight: against the reading from about a month ago when there
     // is one, otherwise against the first weigh-in on record.
@@ -165,8 +172,13 @@
              totals.p >= t.protein ? h('span.chip.chip-good', { text: 'hit' }) : null]
           : [h('span', { text: 'set up to get a target' })],
         'var(--series-3)'),
-      stat('Sessions', sessions, '',
-        [h('span', { text: sessions ? 'completed all time' : 'none logged yet' })], 'var(--series-4)')
+      stat('Burnt today', ready ? (burnt ? '≈ ' + burnt.toLocaleString() : '0') : '—', ready ? ' kcal' : '',
+        ready
+          ? [h('span', { text: burntWeek
+              ? '≈ ' + burntWeek.toLocaleString() + ' kcal in 7 days · ' + weekSessions + ' session' + (weekSessions === 1 ? '' : 's')
+              : 'log a workout and this fills in' })]
+          : [h('span', { text: 'estimated from your workout log' })],
+        'var(--series-4)')
     ]);
   }
 
@@ -390,6 +402,16 @@
         sessionCard.appendChild(h('.card-sub', { text: '+ ' + (planned.day.slots.length - 6) + ' more' }));
       }
     }
+    // What today's log comes to so far — also on a rest day that was trained anyway.
+    var burn = session ? S.sessionBurn(session) : null;
+    if (burn && burn.logged) {
+      sessionCard.appendChild(h('.card-sub', { style: { marginTop: '12px' },
+        text: (session.completed ? 'Done: ' : 'So far: ') +
+              (burn.kcal != null ? '≈ ' + burn.kcal.toLocaleString() + ' kcal burnt in ' : '') +
+              (burn.sets && !burn.entered ? 'about ' : '') + burn.minutes + ' min' +
+              (burn.sets ? ' · ' + burn.sets + ' set' + (burn.sets === 1 ? '' : 's') : '') +
+              (burn.cardioMinutes ? ' · ' + burn.cardioMinutes + ' min conditioning' : '') }));
+    }
     grid.appendChild(sessionCard);
 
     var foodCard = h('.card', [
@@ -417,6 +439,16 @@
         }, 0);
       });
       foodCard.appendChild(ring);
+      // Eaten against burnt. The target is built from your activity level, which
+      // already counts training — so the burn is shown, not handed back as food.
+      var burntToday = burn && burn.logged && burn.kcal ? burn.kcal : 0;
+      if (burntToday) {
+        foodCard.appendChild(h('.card-sub', { style: { marginTop: '12px' } }, [
+          'Eaten ' + Math.round(totals.kcal).toLocaleString() + ' kcal · burnt in training ',
+          h('b', { text: '≈ ' + burntToday.toLocaleString() + ' kcal' }),
+          '. Your ' + t.kcal.toLocaleString() + ' kcal target already allows for training, so this is not extra to eat back.'
+        ]));
+      }
       var dietDay = S.dietDayFor(today);
       if (dietDay) {
         foodCard.appendChild(h('.card-sub', { style: { marginTop: '12px' },
@@ -617,13 +649,17 @@
 
   function editSlot(plan, slot) {
     var sets = h('input', { type: 'number', inputmode: 'numeric', value: slot.sets, min: 1, max: 12 });
-    var reps = h('input', { value: slot.reps, placeholder: 'e.g. 8-12' });
+    // The middle field is whatever this movement is counted in.
+    var kind = EXD.kindOf(slot);
+    var count = kind.measure === 'cardio' ? ['Duration', 'e.g. 20 min']
+              : kind.timed ? ['Hold', 'e.g. 30-45 s'] : ['Reps', 'e.g. 8-12'];
+    var reps = h('input', { value: slot.reps, placeholder: count[1] });
     var rest = h('input', { type: 'number', inputmode: 'numeric', value: slot.rest == null ? 90 : slot.rest, min: 0, max: 600, step: 15 });
     UI.modal({
       title: slot.name,
       body: h('.field-row', [
         h('div', [h('label', { text: 'Sets' }), sets]),
-        h('div', [h('label', { text: 'Reps' }), reps]),
+        h('div', [h('label', { text: count[0] }), reps]),
         h('div', [h('label', { text: 'Rest (seconds)' }), rest])
       ]),
       actions: [{ label: 'Cancel' }, { label: 'Save', kind: 'primary', onClick: function () {
@@ -682,10 +718,9 @@
             type: 'button',
             onclick: function () {
               if (slotIdx == null) {
-                var rx = PG.GOAL_RX[plan.goal] || PG.GOAL_RX.muscle;
-                var p = alt.compound ? rx.compound : rx.iso;
+                var p = PG.rxFor(alt, plan.goal);
                 day.slots.push({ exId: alt.id, name: alt.name, pattern: alt.pattern,
-                                 sets: p.sets, reps: PG.repsFor(alt, p, plan.goal), rest: p.rest, note: '' });
+                                 sets: p.sets, reps: p.reps, rest: p.rest, note: '' });
               } else {
                 PG.applySwap(plan, dayIdx, slotIdx, alt.id);
               }

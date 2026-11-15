@@ -45,6 +45,17 @@
               s.entries.some(function (e) { return e.sets && e.sets.length; }));
   }
 
+  /* Conditioning used to be logged in the reps column, which the log filled in
+   * from the plan's "12 min" — so a figure there was minutes all along. It now
+   * has fields of its own: minutes, and kilometres where there is a distance. */
+  function cardioSet(s) {
+    if (!isObj(s) || s.minutes !== undefined) return;
+    s.minutes = Number(s.reps) > 0 ? Number(s.reps) : '';
+    s.km = '';
+    delete s.reps;
+    delete s.weight;
+  }
+
   /* Bring any older, partial or hand-edited file up to the current shape. A file
    * written by a future version keeps its unknown keys — merging rather than
    * replacing means opening an old build never silently drops data it does not
@@ -76,7 +87,10 @@
       var w = raw.workouts[k];
       if (!isObj(w) || !Array.isArray(w.entries)) return;
       w.entries = w.entries.filter(isObj);
-      w.entries.forEach(function (e) { if (!Array.isArray(e.sets)) e.sets = []; });
+      w.entries.forEach(function (e) {
+        if (!Array.isArray(e.sets)) e.sets = [];
+        if (EXD.kindOf(e).measure === 'cardio') e.sets.forEach(cardioSet);
+      });
       if (sessionUsed(w)) out.workouts[k] = w;
     });
 
@@ -149,6 +163,15 @@
     return (w && h) ? DG.bmi(w, h) : null;
   }
 
+  /* What you weighed on a given day: the last weigh-in up to then, or failing
+   * that the earliest one on record, or the weight in the profile. */
+  function weightOn(dateKey) {
+    var keys = weighInKeys();
+    var upTo = keys.filter(function (k) { return k <= dateKey; }).pop() || keys[0];
+    if (upTo) return Number(state.body[upTo].weightKg);
+    return Number(state.profile.weightKg) || null;
+  }
+
   /* Record a weight against a date, keeping whatever else was measured then. */
   function logWeight(dateKey, kg, notes) {
     var entry = Object.assign({}, state.body[dateKey] || {}, { weightKg: Number(kg) });
@@ -213,7 +236,7 @@
 
   function entryFor(slot) {
     return { exId: slot.exId, name: slot.name, pattern: slot.pattern,
-             targetSets: slot.sets, targetReps: slot.reps, sets: [] };
+             targetSets: slot.sets, targetReps: slot.reps, rest: slot.rest, sets: [] };
   }
 
   /* The session for a date: the stored one if there is one, otherwise a fresh
@@ -274,10 +297,10 @@
     var lifts = {};
     Object.keys(state.workouts).sort().forEach(function (date) {
       state.workouts[date].entries.forEach(function (entry) {
-        if (entry.pattern === 'cardio') return;
+        var kind = EXD.kindOf(entry);
+        if (kind.measure === 'cardio') return;
         var sets = entry.sets.filter(function (s) { return Number(s.reps) > 0; });
         if (!sets.length) return;
-        var kind = EXD.kindOf(entry);
         // Only a loaded movement counted in reps has a one-rep max. Everything
         // else is ranked by reps, or by seconds for a hold.
         var byLoad = kind.load === 'weight' && !kind.timed;
@@ -342,7 +365,7 @@
     });
     return session.entries.filter(function (e) {
       var kind = EXD.kindOf(e);
-      if (e.pattern === 'cardio' || kind.timed || kind.load !== 'weight') return false;
+      if (kind.measure !== 'reps' || kind.load !== 'weight') return false;
       var best = Math.max.apply(null, [0].concat(e.sets.map(function (s) { return e1rm(s.weight, s.reps) || 0; })));
       var k = liftKey(e);
       return best > 0 && k in before && best > before[k];
@@ -356,12 +379,126 @@
     return w ? (w % 1 ? w.toFixed(1) : w) + ' kg × ' + count : count;
   }
 
+  /* "6:15 /km" on foot, "24.0 km/h" on a bike or rower. Null until there is
+   * both a time and a distance to work it out from. */
+  function paceText(minutes, km, dist) {
+    minutes = Number(minutes); km = Number(km);
+    if (!(minutes > 0) || !(km > 0)) return null;
+    if (dist === 'speed') return (km / (minutes / 60)).toFixed(1) + ' km/h';
+    var secs = Math.round(minutes * 60 / km);
+    return Math.floor(secs / 60) + ':' + ('0' + (secs % 60)).slice(-2) + ' /km';
+  }
+
+  /* "20 min", "25 min · 3.2 km · 7:49 /km". */
+  function describeCardio(set, dist) {
+    var min = Number(set.minutes) || 0, km = Number(set.km) || 0;
+    var pace = paceText(min, km, dist);
+    return (min % 1 ? min.toFixed(1) : min) + ' min' + (km ? ' · ' + km + ' km' : '') + (pace ? ' · ' + pace : '');
+  }
+
+  /* -------------------------------------------------------- energy burnt */
+
+  /* An estimate of what a session cost, from what was logged in it.
+   *
+   *   kcal = MET × bodyweight (kg) × hours
+   *
+   * the standard form, where a MET is the activity's energy cost as a multiple
+   * of resting. It is the gross figure — it includes what you would have burnt
+   * sitting still for that time — which is how exercise calories are normally
+   * quoted, and why Home does not add it back onto the day's food target.
+   *
+   * Conditioning brings its own minutes and its own MET (by pace, on foot).
+   * Lifting has no clock in the log, so its time is rebuilt from the sets: each
+   * one is its reps at about three seconds apiece, or the seconds it was held,
+   * plus the rest the plan prescribes. A session length typed in by hand
+   * replaces that guess. Its MET is 3.5 — the Compendium's figure for ordinary
+   * resistance training, rests included — rising towards its 6.0 for vigorous
+   * work as the logged RPE climbs above 6.
+   *
+   * It is good to within about a fifth either way, and says so wherever it is
+   * shown. Nothing here is stored except the hand-typed length. */
+  var REP_SECONDS = 3;
+  var REST_DEFAULT = 90;
+
+  function restFor(session, entry) {
+    var rest = entry.rest;
+    if (rest == null) {
+      // A session laid out before entries carried their rest: ask the plan.
+      var day = state.plan && session.dayIndex != null ? state.plan.days[session.dayIndex] : null;
+      var slot = day ? day.slots.filter(function (s) { return s.name === entry.name; })[0] : null;
+      rest = slot && slot.rest != null ? slot.rest : REST_DEFAULT;
+    }
+    return Math.min(300, Math.max(0, Number(rest) || 0));
+  }
+
+  function sessionBurn(session) {
+    var kg = weightOn(session.date);
+    var cardioMin = 0, cardioMetMin = 0, liftSec = 0, sets = 0, rpeSum = 0, rpeN = 0;
+
+    session.entries.forEach(function (entry) {
+      var kind = EXD.kindOf(entry);
+      var rest = restFor(session, entry);
+      entry.sets.forEach(function (set) {
+        if (kind.measure === 'cardio') {
+          var min = Number(set.minutes) || 0;
+          if (!(min > 0)) return;
+          cardioMin += min;
+          cardioMetMin += EXD.cardioMet(entry, min, set.km) * min;
+          return;
+        }
+        var n = Number(set.reps) || 0;
+        if (!(n > 0)) return;
+        sets++;
+        liftSec += (kind.timed ? n : Math.min(120, Math.max(10, n * REP_SECONDS))) + rest;
+        if (Number(set.rpe) > 0) { rpeSum += Number(set.rpe); rpeN++; }
+      });
+    });
+
+    // A typed-in length is the whole session; what is not conditioning is lifting.
+    var typed = Number(session.durationMin) > 0 ? Number(session.durationMin) : null;
+    var entered = typed != null && sets > 0;
+    var liftMin = entered ? Math.max(0, typed - cardioMin) : liftSec / 60;
+    var liftMet = rpeN ? Math.min(6, Math.max(3, 3.5 + (rpeSum / rpeN - 6) * 0.75)) : 3.5;
+    var metMin = cardioMetMin + liftMet * liftMin;
+
+    return {
+      minutes: Math.round(cardioMin + liftMin),
+      cardioMinutes: Math.round(cardioMin),
+      sets: sets,
+      entered: entered,            // the length was typed in, not estimated
+      short: entered && typed < cardioMin,   // ...and is less than the conditioning alone
+      logged: sets > 0 || cardioMin > 0,
+      kcal: kg ? Math.round(kg * metMin / 60) : null,
+      weightKg: kg
+    };
+  }
+
+  /* One conditioning entry on its own, for the figure beside it in the log. */
+  function cardioKcal(session, entry, set) {
+    var kg = weightOn(session.date), min = Number(set.minutes) || 0;
+    if (!kg || !(min > 0)) return null;
+    return Math.round(kg * EXD.cardioMet(entry, min, set.km) * min / 60);
+  }
+
+  /* Calories burnt in whatever was logged on a day; 0 for a day with nothing. */
+  function burnOn(dateKey) {
+    var s = state.workouts[dateKey];
+    return s ? (sessionBurn(s).kcal || 0) : 0;
+  }
+
+  /* The same, added up over the `days` days ending on `dateKey`. */
+  function burnOver(dateKey, days) {
+    var total = 0;
+    for (var i = 0; i < days; i++) total += burnOn(UI.addDays(dateKey, -i));
+    return total;
+  }
+
   /* Weight × reps, for loaded movements only. Seconds of a plank or kilos of
    * added bodyweight are not tonnage. */
   function sessionVolume(session) {
     return session.entries.reduce(function (total, e) {
       var kind = EXD.kindOf(e);
-      if (kind.timed || kind.load !== 'weight') return total;
+      if (kind.measure !== 'reps' || kind.load !== 'weight') return total;
       return total + e.sets.reduce(function (t, s) {
         return t + ((Number(s.weight) || 0) * (Number(s.reps) || 0));
       }, 0);
@@ -404,6 +541,7 @@
     weighInKeys: weighInKeys,
     currentWeight: currentWeight,
     currentBMI: currentBMI,
+    weightOn: weightOn,
     logWeight: logWeight,
     targets: targets,
     plannedDayFor: plannedDayFor,
@@ -420,6 +558,12 @@
     newRecords: newRecords,
     sessionVolume: sessionVolume,
     describeSet: describeSet,
+    describeCardio: describeCardio,
+    paceText: paceText,
+    sessionBurn: sessionBurn,
+    cardioKcal: cardioKcal,
+    burnOn: burnOn,
+    burnOver: burnOver,
     nutritionTotals: nutritionTotals,
     streak: streak
   };
