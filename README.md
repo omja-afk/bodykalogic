@@ -90,7 +90,7 @@ Confirm email**. Passwords must be at least 8 characters.
   the rest of the app stays reachable while you decide. A line from a library of 161
   quotes — training and life positivity — sits at the top, a new one on every visit.
 - **Workout plan** — your split, with a gym / home-dumbbells / bodyweight switch at the
-  top that re-equips the whole plan. Generated, imported, or written by hand.
+  top that re-equips the whole plan. Built for you or imported.
 - **Diet plan** — seven distinct days built to your calorie and protein targets, with
   diet and cuisine controls at the top and an alternative list on every meal.
 - **Workout log** — log sets, reps, weight and RPE against the day's planned session, for

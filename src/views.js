@@ -541,11 +541,7 @@
       ]),
       h('.card-head', { style: { marginTop: '14px', marginBottom: 0 } }, [
         UI.button('.btn-sm', 'refresh', 'Rebuild plan', { onclick: function () { regeneratePlan(); } }),
-        UI.button('.btn-sm', 'upload', 'Import a plan', { onclick: function () { Views.openPlanImport(); } }),
-        UI.button('.btn-sm', 'plus', 'Add day', { onclick: function () {
-          plan.days.push({ name: 'Day ' + (plan.days.length + 1), focus: '', slots: [], notes: '', weekday: null });
-          S.save(); redraw();
-        } })
+        UI.button('.btn-sm', 'upload', 'Import a plan', { onclick: function () { Views.openPlanImport(); } })
       ])
     ]));
 
