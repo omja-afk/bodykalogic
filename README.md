@@ -29,7 +29,7 @@ generated from.
 
 ## Live
 
-<https://omja-afk.github.io/bodykalogic/> — open it on your phone and your laptop,
+<https://bodykalogic.netlify.app/> — open it on your phone and your laptop,
 sign in with the same email, and both show the same data.
 
 ## Where your data lives
@@ -69,8 +69,10 @@ may still be served the previous build — all of it, consistently. Hard-refresh
    It creates one table and the row-level-security policies.
 2. Open **Project Settings → API** and copy the **anon / publishable** key.
 3. Paste it into `src/config.js` as `anonKey`.
-4. For password-reset links to come back to the app, add its URL under
-   **Authentication → URL Configuration → Redirect URLs**.
+4. Under **Authentication → URL Configuration**, set **Site URL** to
+   `https://bodykalogic.netlify.app/` and add it (and `http://localhost:8099/` for local
+   testing) to **Redirect URLs**. Without this, confirmation and reset emails link to the
+   wrong place. Use the bare URL — no `#home`: Supabase puts the sign-in token after a `#`.
 
 The anon key is public by design — it ships inside every Supabase browser app and
 is safe to commit **because** row-level security is on. It identifies the project,

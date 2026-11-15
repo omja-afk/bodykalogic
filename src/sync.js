@@ -226,8 +226,16 @@
 
   /* ------------------------------------------------------------------ auth */
 
+  /* Where links in Supabase's emails should land: the page this was opened
+   * from. Supabase only honours it if the URL is on the project's Redirect
+   * URLs list; otherwise it falls back to the Site URL. */
+  function returnUrl() {
+    var loc = global.location;
+    return loc ? '?redirect_to=' + encodeURIComponent(loc.origin + loc.pathname) : '';
+  }
+
   function signUp(email, password) {
-    return api('/auth/v1/signup', {
+    return api('/auth/v1/signup' + returnUrl(), {
       method: 'POST', auth: false,
       body: { email: email, password: password }
     }).then(function (res) {
@@ -263,8 +271,7 @@
   /* Email a password-reset link. It comes back to wherever the app is being
    * served from, which has to be on the project's list of allowed redirects. */
   function recover(email) {
-    var back = global.location ? (global.location.origin + global.location.pathname) : '';
-    return api('/auth/v1/recover' + (back ? '?redirect_to=' + encodeURIComponent(back) : ''), {
+    return api('/auth/v1/recover' + returnUrl(), {
       method: 'POST', auth: false,
       body: { email: email }
     });
