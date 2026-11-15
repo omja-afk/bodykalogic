@@ -7,7 +7,7 @@
 (function (global) {
   'use strict';
 
-  var UI = global.UI, DG = global.DietGen;
+  var UI = global.UI, DG = global.DietGen, EXD = global.ExerciseData;
   var SCHEMA = 1;
 
   var state = null;
@@ -277,14 +277,19 @@
         if (entry.pattern === 'cardio') return;
         var sets = entry.sets.filter(function (s) { return Number(s.reps) > 0; });
         if (!sets.length) return;
+        var kind = EXD.kindOf(entry);
+        // Only a loaded movement counted in reps has a one-rep max. Everything
+        // else is ranked by reps, or by seconds for a hold.
+        var byLoad = kind.load === 'weight' && !kind.timed;
         var key = liftKey(entry);
-        var lift = lifts[key] || (lifts[key] = { key: key, exId: entry.exId || null, name: entry.name, days: [] });
+        var lift = lifts[key] || (lifts[key] = { key: key, exId: entry.exId || null, name: entry.name, days: [],
+                                                 timed: kind.timed, load: kind.load, byLoad: byLoad });
         lift.name = entry.name || lift.name;
 
         var day = { date: date, best: null, e1rm: 0, topWeight: 0, maxReps: 0, volume: 0, sets: sets.length };
         sets.forEach(function (s) {
           var w = Number(s.weight) || 0, r = Number(s.reps) || 0;
-          var est = e1rm(w, r) || 0;
+          var est = byLoad ? (e1rm(w, r) || 0) : 0;
           if (est > day.e1rm) { day.e1rm = est; day.best = { weight: w, reps: r }; }
           if (w > day.topWeight) day.topWeight = w;
           if (r > day.maxReps) day.maxReps = r;
@@ -294,7 +299,7 @@
         // one with the most reps.
         if (!day.best) {
           var top = sets.reduce(function (a, s) { return Number(s.reps) > Number(a.reps) ? s : a; });
-          day.best = { weight: 0, reps: Number(top.reps) };
+          day.best = { weight: Number(top.weight) || 0, reps: Number(top.reps) };
         }
         lift.days.push(day);
       });
@@ -302,7 +307,7 @@
 
     return Object.keys(lifts).map(function (k) {
       var lift = lifts[k];
-      var weighted = lift.days.some(function (d) { return d.topWeight > 0; });
+      var weighted = lift.byLoad && lift.days.some(function (d) { return d.topWeight > 0; });
       var bestDay = lift.days.reduce(function (a, d) {
         return (weighted ? d.e1rm > a.e1rm : d.maxReps > a.maxReps) ? d : a;
       });
@@ -336,15 +341,27 @@
       });
     });
     return session.entries.filter(function (e) {
-      if (e.pattern === 'cardio') return false;
+      var kind = EXD.kindOf(e);
+      if (e.pattern === 'cardio' || kind.timed || kind.load !== 'weight') return false;
       var best = Math.max.apply(null, [0].concat(e.sets.map(function (s) { return e1rm(s.weight, s.reps) || 0; })));
       var k = liftKey(e);
       return best > 0 && k in before && best > before[k];
     }).map(function (e) { return e.name; });
   }
 
+  /* "80 kg × 8", "+10 kg × 6", "12 reps", "45 s". */
+  function describeSet(set, timed) {
+    var w = Number(set.weight) || 0, r = Number(set.reps) || 0;
+    var count = timed ? r + ' s' : (w ? String(r) : r + ' reps');
+    return w ? (w % 1 ? w.toFixed(1) : w) + ' kg × ' + count : count;
+  }
+
+  /* Weight × reps, for loaded movements only. Seconds of a plank or kilos of
+   * added bodyweight are not tonnage. */
   function sessionVolume(session) {
     return session.entries.reduce(function (total, e) {
+      var kind = EXD.kindOf(e);
+      if (kind.timed || kind.load !== 'weight') return total;
       return total + e.sets.reduce(function (t, s) {
         return t + ((Number(s.weight) || 0) * (Number(s.reps) || 0));
       }, 0);
@@ -402,6 +419,7 @@
     bestFor: bestFor,
     newRecords: newRecords,
     sessionVolume: sessionVolume,
+    describeSet: describeSet,
     nutritionTotals: nutritionTotals,
     streak: streak
   };

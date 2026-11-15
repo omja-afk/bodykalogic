@@ -24,6 +24,13 @@
 
   var VOLUME = { beginner: 5, intermediate: 6, advanced: 7 };
 
+  /* Holds are prescribed in seconds; the goal only changes how long. */
+  var HOLD = { strength: '20-30 s', muscle: '30-45 s', fat_loss: '30-45 s', endurance: '45-60 s',
+               maintain: '30-45 s', recomp: '30-45 s' };
+  function repsFor(ex, p, goal) {
+    return ex.timed ? (HOLD[goal] || HOLD.muscle) : p.reps[0] + '-' + p.reps[1];
+  }
+
   /* Default weekday for each training day, 0 = Sunday. Spread so the rest days
    * fall between sessions rather than all landing at the end of the week. */
   var WEEK_SCHEDULE = {
@@ -120,7 +127,7 @@
           name: ex.name,
           pattern: pattern,
           sets: p.sets,
-          reps: p.reps[0] + '-' + p.reps[1],
+          reps: repsFor(ex, p, goal),
           rest: p.rest,
           note: ''
         };
@@ -201,10 +208,10 @@
     // not inherit 5x5. Like for like keeps the sets and reps already there —
     // they may be the user's own, or their trainer's.
     var rx = GOAL_RX[plan.goal] || GOAL_RX.muscle;
-    if (slot.pattern !== 'cardio' && (!was || was.compound !== ex.compound)) {
+    if (slot.pattern !== 'cardio' && (!was || was.compound !== ex.compound || was.timed !== ex.timed)) {
       var p = ex.compound ? rx.compound : rx.iso;
       slot.sets = p.sets;
-      slot.reps = p.reps[0] + '-' + p.reps[1];
+      slot.reps = repsFor(ex, p, plan.goal);
       slot.rest = p.rest;
     }
     plan.updatedAt = Date.now();
@@ -242,6 +249,7 @@
 
   global.PlanGen = {
     GOAL_RX: GOAL_RX,
+    repsFor: repsFor,
     generate: generate,
     alternativesForSlot: alternativesForSlot,
     applySwap: applySwap,

@@ -473,6 +473,10 @@ button.check-pill:hover { border-color: var(--accent); color: var(--ink); }
 .day-weekday { max-width: 140px; font-size: .8rem; }
 .session-picker { max-width: 210px; }
 .log-date { max-width: 160px; }
+.rpe-help { margin-top: 8px; font-size: .8rem; color: var(--ink-2); }
+.rpe-help summary { cursor: pointer; color: var(--accent); font-weight: 550; width: max-content; }
+.rpe-help p { margin: 6px 0 0; font-size: .8rem; max-width: 70ch; }
+abbr[title] { text-decoration: underline dotted; cursor: help; }
 .set-table input { width: 92px; max-width: 100%; }
 .set-table td:first-child { width: 44px; color: var(--ink-muted); }
 .working { margin: 0; font-size: .82rem; color: var(--ink-2); }

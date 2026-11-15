@@ -554,6 +554,30 @@
     ['Star Jump',                    'cardio','conditioning',['bw'],['knee'],0]
   ];
 
+  /* How a set of this movement is measured.
+   *
+   *   load  'weight'     — loaded with a barbell, dumbbell, machine, cable or
+   *                        kettlebell: weight × reps
+   *         'bodyweight' — your own body is the load; extra weight (a vest, a
+   *                        dip belt) is optional
+   *         'band'       — resistance from a band, which has no kilogram figure
+   *   timed  true for holds, hangs, planks and carries, which are measured in
+   *          seconds rather than reps. Variants that move ("Plank Shoulder Tap",
+   *          "Hanging Leg Raise") are counted in reps.
+   */
+  var LOADED = ['bb', 'db', 'mc', 'cb', 'kb'];
+  function loadOf(equip) {
+    var tools = equip.filter(function (t) { return t !== 'bar' && t !== 'bn'; });
+    if (tools.some(function (t) { return LOADED.indexOf(t) !== -1; })) return 'weight';
+    if (tools.length && tools.every(function (t) { return t === 'bd'; })) return 'band';
+    return 'bodyweight';
+  }
+  function timedName(name) {
+    if (/\bhold\b|iso-hold|isometric/i.test(name)) return true;
+    return /\b(hang|wall sit|carry|plank)\b/i.test(name) &&
+           !/(jack|tap|reach|pull-through|dip|rock|raise|march)/i.test(name);
+  }
+
   var EXERCISES = E.map(function (row, i) {
     return {
       id: 'ex' + i,
@@ -562,7 +586,9 @@
       primary: row[2],
       equip: row[3],
       tags: row[4],
-      compound: !!row[5]
+      compound: !!row[5],
+      load: loadOf(row[3]),
+      timed: timedName(row[0])
     };
   });
 
@@ -682,6 +708,15 @@
       return EXERCISES.filter(function (e) { return e.name.toLowerCase() === n; })[0] || null;
     },
     available: available,
+
+    /* How to measure an entry in a plan or a log. A movement the library does
+     * not know is assumed to be loaded, with weight optional, and timed if its
+     * name says so. */
+    kindOf: function (entry) {
+      var ex = (entry && entry.exId && byId[entry.exId]) || null;
+      if (ex) return { load: ex.load, timed: ex.timed };
+      return { load: 'weight', timed: timedName(String((entry && entry.name) || '')) };
+    },
     profileHas: profileHas,
     pool: pool,
     alternatives: alternatives,

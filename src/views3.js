@@ -289,9 +289,7 @@
   var selectedLift = null;   // which exercise the detail chart shows; kept across redraws
 
   function kg(v) { return C.fmt(v, 1) + ' kg'; }
-  function setText(best) {
-    return best.weight ? C.fmt(best.weight, 1) + ' kg × ' + best.reps : best.reps + ' reps';
-  }
+  function setText(best, lift) { return S.describeSet(best, lift.timed); }
 
   Views.maxes = function (root) {
     UI.clear(root);
@@ -308,7 +306,8 @@
         ' and your bests and progress are worked out for you. ',
         h('b', { text: 'Estimated 1RM' }),
         ' (one-rep max) is the heaviest weight you could probably lift for a single rep, ' +
-        'calculated from your best set — so a set of 8 and a heavy single can be compared on the same scale.'
+        'calculated from your best set — so a set of 8 and a heavy single can be compared on the same scale. ' +
+        'Bodyweight exercises are tracked by reps, and holds like planks by seconds.'
       ])
     ]));
 
@@ -372,13 +371,15 @@
           { name: 'Estimated 1RM', points: l.days.map(function (d, i) { return { x: labels[i], y: d.e1rm || null }; }) },
           { name: 'Heaviest set', points: l.days.map(function (d, i) { return { x: labels[i], y: d.topWeight || null }; }) }
         ] });
-        detailNote.textContent = 'Best: ' + setText(l.best) + ' on ' + UI.prettyDate(l.bestDate) +
+        detailNote.textContent = 'Best: ' + setText(l.best, l) + ' on ' + UI.prettyDate(l.bestDate) +
           ' — an estimated 1RM of ' + kg(l.e1rm) + '. Logged on ' + l.days.length + ' day' + (l.days.length === 1 ? '' : 's') + '.';
       } else {
-        C.line(detailHost, { height: 260, unit: ' reps', dp: 0, area: true, series: [
-          { name: 'Most reps in a set', points: l.days.map(function (d, i) { return { x: labels[i], y: d.maxReps }; }) }
+        C.line(detailHost, { height: 260, unit: l.timed ? ' s' : ' reps', dp: 0, area: true, series: [
+          { name: l.timed ? 'Longest hold' : 'Most reps in a set',
+            points: l.days.map(function (d, i) { return { x: labels[i], y: d.maxReps }; }) }
         ] });
-        detailNote.textContent = 'Bodyweight — tracked by reps. Best: ' + l.maxReps + ' reps on ' +
+        detailNote.textContent = (l.timed ? 'Timed hold — tracked by seconds. Best: ' + l.maxReps + ' s'
+            : (l.load === 'band' ? 'Band' : 'Bodyweight') + ' — tracked by reps. Best: ' + l.maxReps + ' reps') + ' on ' +
           UI.prettyDate(l.bestDate) + '. Logged on ' + l.days.length + ' day' + (l.days.length === 1 ? '' : 's') + '.';
       }
     }
@@ -396,7 +397,7 @@
     var table = h('table.table', [h('thead', [h('tr', [
       h('th', { text: 'Exercise' }),
       h('th.num', { text: 'Heaviest' }),
-      h('th.num', { text: 'Most reps' }),
+      h('th.num', { text: 'Most reps / time' }),
       h('th.num', { text: 'Best set' }),
       h('th.num', { text: 'Est. 1RM' }),
       h('th', { text: 'Best on' }),
@@ -406,9 +407,9 @@
     rows.forEach(function (l) {
       var tr = h('tr.is-clickable', { tabindex: '0', title: 'Show ' + l.name + ' in the chart above' }, [
         h('td', { text: l.name }),
-        h('td.num', { text: l.topWeight ? kg(l.topWeight) : '—' }),
-        h('td.num', { text: l.maxReps }),
-        h('td.num', { text: setText(l.best) }),
+        h('td.num', { text: l.topWeight ? (l.load === 'bodyweight' ? '+' : '') + kg(l.topWeight) : '—' }),
+        h('td.num', { text: l.timed ? l.maxReps + ' s' : l.maxReps }),
+        h('td.num', { text: setText(l.best, l) }),
         h('td.num', [l.weighted ? h('b', { text: kg(l.e1rm) }) : '—']),
         h('td', { text: UI.shortDate(l.bestDate) }),
         h('td.num', { text: l.days.length })

@@ -503,7 +503,13 @@
           onchange: function (e) { if (UI.validPastKey(e.target.value)) go(e.target.value); } }),
         picker
       ]),
-      volumeLine
+      volumeLine,
+      h('details.rpe-help', [
+        h('summary', { text: 'What is RPE?' }),
+        h('p', { text: 'RPE (rate of perceived exertion) is how hard a set felt, from 1 to 10. ' +
+          '10 means you could not have done another rep; 9 means one more was left; 8 means about two. ' +
+          'It is optional, but it shows whether a weight is getting easier over time.' })
+      ])
     ]));
 
     if (!session.entries.length) {
@@ -519,16 +525,27 @@
     }
 
     session.entries.forEach(function (entry, ei) {
+      // How this movement is measured decides the columns: a push-up has no
+      // weight to enter (extra load is optional), a band has none at all, and
+      // a plank is held for seconds rather than counted in reps.
+      var kind = global.ExerciseData.kindOf(entry);
+      var showWeight = kind.load !== 'band';
+      var showVolume = kind.load === 'weight' && !kind.timed;
+      var weightLabel = kind.load === 'bodyweight' ? 'Added weight (kg)' : 'Weight (kg)';
+      var countLabel = kind.timed ? 'Seconds' : 'Reps';
+      var kindChip = kind.timed ? 'Timed hold' : kind.load === 'bodyweight' ? 'Bodyweight' : kind.load === 'band' ? 'Band' : null;
+
       var card = h('.card', { 'data-entry': ei });
-      var lastTime = lastPerformance(entry.name, dateKey);
+      var lastTime = lastPerformance(entry, dateKey);
       card.appendChild(h('.card-head', [
         h('h3', { text: entry.name }),
+        kindChip ? h('span.chip', { text: kindChip }) : null,
         h('span.card-sub', { text: 'target ' + entry.targetSets + ' × ' + entry.targetReps +
           (lastTime ? ' · last time ' + lastTime : '') }),
         h('.spacer'),
         UI.button('.btn-sm', 'plus', 'Add set', { onclick: function () {
           var prev = entry.sets[entry.sets.length - 1];
-          entry.sets.push({ reps: prev ? prev.reps : parseInt(entry.targetReps, 10) || 8,
+          entry.sets.push({ reps: prev ? prev.reps : parseInt(entry.targetReps, 10) || (kind.timed ? 30 : 8),
                             weight: prev ? prev.weight : '', rpe: '' });
           keep(); redraw();
           // Straight into the new row, so logging a set is: tap, type, tab.
@@ -541,26 +558,32 @@
         card.appendChild(h('.hint', { text: 'No sets logged yet.' }));
       } else {
         var table = h('table.table.set-table', [h('thead', [h('tr', [
-          h('th', { text: 'Set' }), h('th', { text: 'Weight (kg)' }),
-          h('th', { text: 'Reps' }), h('th', { text: 'RPE' }),
-          h('th.num', { text: 'Volume' }), h('th', [h('span.sr-only', { text: 'Remove' })])
+          h('th', { text: 'Set' }),
+          showWeight ? h('th', { text: weightLabel }) : null,
+          h('th', { text: countLabel }),
+          h('th', [h('abbr', { title: 'Rate of perceived exertion: how hard the set felt, 1–10', text: 'RPE' })]),
+          showVolume ? h('th.num', { text: 'Volume' }) : null,
+          h('th', [h('span.sr-only', { text: 'Remove' })])
         ])])]);
         var tbody = h('tbody');
         entry.sets.forEach(function (set, si) {
-          var volume = h('td.num', { text: setVolume(set) });
+          var volume = showVolume ? h('td.num', { text: setVolume(set) }) : null;
+          var label = entry.name + ', set ' + (si + 1);
           // These update the row in place. Redrawing the tab on every field
           // would drop the cursor each time you moved from weight to reps.
-          function changed() { volume.textContent = setVolume(set); refreshVolume(); keep(); }
+          function changed() { if (volume) volume.textContent = setVolume(set); refreshVolume(); keep(); }
           tbody.appendChild(h('tr', [
             h('td', { text: si + 1 }),
-            h('td', [h('input', { type: 'number', inputmode: 'decimal', value: set.weight, step: 0.5, min: 0,
-              'aria-label': entry.name + ', set ' + (si + 1) + ', weight in kilograms',
-              onchange: function (e) { set.weight = num(e.target.value); changed(); } })]),
+            showWeight ? h('td', [h('input', { type: 'number', inputmode: 'decimal', value: set.weight, step: 0.5, min: 0,
+              placeholder: kind.load === 'weight' ? '' : 'optional',
+              'aria-label': label + ', ' + weightLabel.toLowerCase(),
+              onchange: function (e) { set.weight = num(e.target.value); changed(); } })]) : null,
             h('td', [h('input', { type: 'number', inputmode: 'numeric', value: set.reps, min: 0,
-              'aria-label': entry.name + ', set ' + (si + 1) + ', reps',
+              'aria-label': label + ', ' + countLabel.toLowerCase(),
               onchange: function (e) { set.reps = num(e.target.value); changed(); } })]),
             h('td', [h('input', { type: 'number', inputmode: 'decimal', value: set.rpe, min: 1, max: 10, step: 0.5,
-              'aria-label': entry.name + ', set ' + (si + 1) + ', effort out of ten',
+              placeholder: '1–10',
+              'aria-label': label + ', effort out of ten',
               onchange: function (e) {
                 set.rpe = e.target.value === '' ? '' : Math.min(10, Math.max(1, Number(e.target.value) || 1));
                 e.target.value = set.rpe;
@@ -604,16 +627,22 @@
     ]));
   };
 
-  function lastPerformance(name, beforeKey) {
+  /* The best set from the most recent earlier day this was logged: heaviest
+   * for a loaded lift, most reps or longest hold otherwise. */
+  function lastPerformance(entry, beforeKey) {
     var st = S.get();
+    var kind = global.ExerciseData.kindOf(entry);
+    var byWeight = kind.load === 'weight' && !kind.timed;
     var keys = Object.keys(st.workouts).filter(function (k) { return k < beforeKey; }).sort().reverse();
     for (var i = 0; i < keys.length; i++) {
-      var e = st.workouts[keys[i]].entries.filter(function (en) { return en.name === name; })[0];
+      var e = st.workouts[keys[i]].entries.filter(function (en) { return en.name === entry.name; })[0];
       if (e && e.sets.length) {
         var best = e.sets.reduce(function (a, b) {
-          return (Number(b.weight) || 0) > (Number(a.weight) || 0) ? b : a;
+          var av = byWeight ? Number(a.weight) || 0 : Number(a.reps) || 0;
+          var bv = byWeight ? Number(b.weight) || 0 : Number(b.reps) || 0;
+          return bv > av ? b : a;
         });
-        return Number(best.weight) ? best.weight + ' kg × ' + best.reps : best.reps + ' reps';
+        return S.describeSet(best, kind.timed);
       }
     }
     return null;

@@ -598,7 +598,7 @@
         h('.ex-meta', { text: slot.sets + ' × ' + slot.reps +
           (slot.rest ? ' · ' + slot.rest + 's rest' : '') +
           (slot.weight ? ' · ' + slot.weight + (slot.weightUnit || 'kg') : '') +
-          (best ? ' · best ' + (best.best.weight ? best.best.weight + ' kg × ' + best.best.reps : best.best.reps + ' reps') : '') +
+          (best ? ' · best ' + S.describeSet(best.best, best.timed) : '') +
           (slot.importedAs ? ' · imported as "' + slot.importedAs + '"' : '') })
       ]),
       slot.exId ? h('span.ex-pattern', { text: EXD.PATTERN_LABEL[slot.pattern] || slot.pattern }) : null,
@@ -685,7 +685,7 @@
                 var rx = PG.GOAL_RX[plan.goal] || PG.GOAL_RX.muscle;
                 var p = alt.compound ? rx.compound : rx.iso;
                 day.slots.push({ exId: alt.id, name: alt.name, pattern: alt.pattern,
-                                 sets: p.sets, reps: p.reps[0] + '-' + p.reps[1], rest: p.rest, note: '' });
+                                 sets: p.sets, reps: PG.repsFor(alt, p, plan.goal), rest: p.rest, note: '' });
               } else {
                 PG.applySwap(plan, dayIdx, slotIdx, alt.id);
               }
