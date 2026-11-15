@@ -87,14 +87,14 @@
 
   function heroCard(ready) {
     var st = S.get(), p = st.profile;
-    // Morning 5:00–11:59, afternoon 12:00–16:59, evening 17:00–20:59, and
-    // night from 21:00 through the small hours — 2 a.m. is not morning to
-    // anyone still awake at 2 a.m.
+    // Morning 4:00–10:59, afternoon 11:00–15:59, evening 16:00–20:59, and
+    // "Still up?" from 21:00 through the small hours — 2 a.m. is not morning
+    // to anyone awake at 2 a.m., and "Good night" is a farewell, not a greeting.
     var hour = new Date().getHours();
-    var greeting = hour >= 5 && hour < 12 ? 'Good morning'
-                 : hour >= 12 && hour < 17 ? 'Good afternoon'
-                 : hour >= 17 && hour < 21 ? 'Good evening'
-                 : 'Good night';
+    var greeting = hour >= 4 && hour < 11 ? 'Good morning'
+                 : hour >= 11 && hour < 16 ? 'Good afternoon'
+                 : hour >= 16 && hour < 21 ? 'Good evening'
+                 : 'Still up?';
     var streak = S.streak();
     var goal = (PG.GOALS.filter(function (g) { return g.id === p.goal; })[0] || {}).label;
 
@@ -102,7 +102,7 @@
       h('.card-head', { style: { marginBottom: '6px' } }, [
         h('div', [
           h('.stat-label', { text: ready ? 'Overview' : 'Welcome' }),
-          h('h2', { text: ready ? greeting + (p.name ? ', ' + p.name : '') : 'Welcome to BodyKaLogic' }),
+          h('h2', { text: ready ? (p.name ? (greeting === 'Still up?' ? 'Still up, ' + p.name + '?' : greeting + ', ' + p.name) : greeting) : 'Welcome to BodyKaLogic' }),
           h('p', { style: { margin: '6px 0 0' }, text: ready
             ? UI.prettyDate(UI.todayKey()) + (streak ? ' · ' + streak + '-day streak' : '')
             : 'Fitness backed by data, not guesswork. It works out your numbers from your body and your goal, shows how it got there, and tracks whether they are working.' })
