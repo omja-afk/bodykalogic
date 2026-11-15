@@ -560,7 +560,11 @@ body.has-modal { overflow: hidden; }
 
 /* =============================== toasts =============================== */
 
-.toasts { position: fixed; right: 18px; bottom: 18px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
+.toasts {
+  position: fixed; top: calc(16px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+  z-index: 200; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  width: max-content; max-width: calc(100vw - 32px); pointer-events: none;
+}
 .toast {
   background: var(--surface-3); border: 1px solid var(--hairline);
   border-left: 3px solid var(--accent);
@@ -571,7 +575,7 @@ body.has-modal { overflow: hidden; }
 }
 .toast.is-bad  { border-left-color: var(--critical); }
 .toast.is-good { border-left-color: var(--good); }
-@keyframes slide-in { from { opacity: 0; transform: translateX(14px); } }
+@keyframes slide-in { from { opacity: 0; transform: translateY(-10px); } }
 
 /* ============================= onboarding ============================= */
 
@@ -705,8 +709,7 @@ body.has-modal { overflow: hidden; }
   .day-name, .day-focus, .day-weekday, .session-picker { max-width: none; flex: 1 1 140px; }
   .modal-backdrop { padding: 10px; align-items: end; }
   .modal { max-height: 92vh; max-height: 92dvh; }
-  .toasts { left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); }
-  .toast { max-width: none; }
+  .toasts { top: calc(10px + env(safe-area-inset-top)); }
   .auth-card { padding: 24px 20px 20px; }
   .set-table input { width: 74px; }
 }
