@@ -150,7 +150,11 @@
 
   /* ============================== guided setup ========================== */
 
-  function runOnboarding() {
+  /* opts.gate: this is the first thing a new account sees, and the app stays
+   * closed until it is finished. Without it, it is the optional walkthrough
+   * opened from Home. */
+  function runOnboarding(opts) {
+    var gate = !!(opts && opts.gate);
     var root = document.getElementById('onboard-root');
     function leave() {
       wizardOpen = false;
@@ -164,7 +168,9 @@
     var STEPS = [
       {
         title: 'Welcome to BodyKaLogic',
-        intro: 'Fitness backed by data, not guesswork. A few questions, and your training plan, meal plan and daily targets are built for you.',
+        intro: gate
+          ? 'Before you start, tell us a little about yourself. It takes about a minute, and your training plan, meal plan and daily targets are built from it. You can change any of it later in Profile.'
+          : 'Fitness backed by data, not guesswork. A few questions, and your training plan, meal plan and daily targets are built for you.',
         fields: function () {
           return [
             h('.field', [h('label', { text: 'What should we call you?' }),
@@ -317,7 +323,10 @@
         h('div', { style: { marginTop: '16px' } }, s.fields()),
         h('.card-head', { style: { marginTop: '22px', marginBottom: 0 } }, [
           step > 0 ? h('button.btn', { type: 'button', text: 'Back', onclick: function () { step--; draw(); } })
-                   : h('button.btn.btn-ghost', { type: 'button', text: 'Not now', onclick: function () { leave(); App.go('home'); } }),
+          : gate ? h('button.btn.btn-ghost', { type: 'button', text: 'Sign out', onclick: function () {
+              Sync.signOut().then(function () { Store.wipe(); Sync.forgetLocal(); location.reload(); });
+            } })
+          : h('button.btn.btn-ghost', { type: 'button', text: 'Not now', onclick: function () { leave(); App.go('home'); } }),
           h('.spacer'),
           h('button.btn.btn-primary', {
             type: 'button',
@@ -338,6 +347,7 @@
     function finish() {
       Views.completeSetup(answers);
       leave();
+      appOpen = true;
       App.go('home');
       UI.toast('Your plan and meals are ready.', 'good');
     }
@@ -483,7 +493,7 @@
       // revoked, or it expired — closes the app too. Carrying on would save
       // everything to this device alone, which is the split history the
       // account exists to prevent.
-      if (appOpen && sy.enabled && !sy.signedIn) showGate();
+      if ((appOpen || wizardOpen) && sy.enabled && !sy.signedIn) showGate();
     });
 
     document.addEventListener('visibilitychange', function () {
@@ -536,6 +546,11 @@
       if (arrival && arrival.type === 'recovery') { showGate({ mode: 'newpass' }); return; }
 
       document.getElementById('boot').hidden = true;
+
+      // A new account has no details yet, and everything in the app is worked
+      // out from them. Collect them first; the app opens when they are in.
+      if (!Views.profileReady(S.get().profile)) { runOnboarding({ gate: true }); return; }
+
       document.getElementById('app').hidden = false;
       appOpen = true;
       var hash = location.hash.replace('#', '');
@@ -555,7 +570,7 @@
   }
 
   // Reachable from the Home card for anyone who would rather be walked through it.
-  App.guidedSetup = function () { runOnboarding(); };
+  App.guidedSetup = function (opts) { runOnboarding(opts); };
 
   global.App = App;
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
