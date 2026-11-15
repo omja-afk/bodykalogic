@@ -87,8 +87,8 @@ Confirm email**. Passwords must be at least 8 characters.
 - **Home** — the entrance. Opens on your dashboard: weight, BMI on a banded scale,
   protein against target, today's session, today's meals, and weight and BMI trends
   side by side. Before you have a profile it leads with a one-card setup instead, and
-  the rest of the app stays reachable while you decide. A line from a library of 126
-  quotes sits at the top, one a day.
+  the rest of the app stays reachable while you decide. A line from a library of 161
+  quotes — training and life positivity — sits at the top, a new one on every visit.
 - **Workout plan** — your split, with a gym / home-dumbbells / bodyweight switch at the
   top that re-equips the whole plan. Generated, imported, or written by hand.
 - **Diet plan** — seven distinct days built to your calorie and protein targets, with

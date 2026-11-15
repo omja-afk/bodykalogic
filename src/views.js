@@ -87,12 +87,14 @@
 
   function heroCard(ready) {
     var st = S.get(), p = st.profile;
-    // 2 a.m. is not morning to anyone awake at 2 a.m., and "good night" is a
-    // goodbye, so the small hours stay with the evening.
+    // Morning 5:00–11:59, afternoon 12:00–16:59, evening 17:00–20:59, and
+    // night from 21:00 through the small hours — 2 a.m. is not morning to
+    // anyone still awake at 2 a.m.
     var hour = new Date().getHours();
     var greeting = hour >= 5 && hour < 12 ? 'Good morning'
                  : hour >= 12 && hour < 17 ? 'Good afternoon'
-                 : 'Good evening';
+                 : hour >= 17 && hour < 21 ? 'Good evening'
+                 : 'Good night';
     var streak = S.streak();
     var goal = (PG.GOALS.filter(function (g) { return g.id === p.goal; })[0] || {}).label;
 
@@ -112,9 +114,9 @@
     ]);
   }
 
-  /* One line a day, the same all day, from the quote library. */
+  /* A new line from the quote library on every page load. */
   function quoteLine() {
-    var q = global.Quotes.forDay(UI.todayKey());
+    var q = global.Quotes.current();
     return h('.quote', [
       h('span.quote-mark', { text: '\u201C' }),
       h('span.quote-text', { text: q.text }),

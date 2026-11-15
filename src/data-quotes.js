@@ -1,8 +1,10 @@
 /* data-quotes.js — a line for the top of Home.
  *
- * One quote per calendar day, chosen by hashing the date, so it is the same all
- * day (refreshing does not reroll it) and changes at midnight. Attributed where
- * the line belongs to someone; the unattributed ones are plain gym-floor truths.
+ * A fresh quote on every page load, picked at random and never the same one
+ * twice in a row. It holds still for the rest of the visit, so moving between
+ * tabs does not reshuffle it. Two kinds: training lines, and lines about life
+ * in general. Attributed where the line belongs to someone; the unattributed
+ * ones are plain truths.
  *
  * Kept short on purpose: a banner is not the place for a paragraph.
  */
@@ -136,18 +138,62 @@
     ['Fitness is a relationship, not an event.', ''],
     ['Begin again, as many times as it takes.', ''],
     ['You are closer than you were yesterday.', ''],
-    ['Keep the promise you made to yourself.', '']
+    ['Keep the promise you made to yourself.', ''],
+
+    // ---- life, not just lifting
+    ['Be kind to yourself today. You are doing better than you think.', ''],
+    ['Every day is a fresh start.', ''],
+    ['Good things take time, and so do you.', ''],
+    ['You are allowed to be both a work in progress and proud of yourself.', ''],
+    ['Breathe. You have handled every hard day so far.', ''],
+    ['Choose joy in small things — a good meal, a long walk, a full night of sleep.', ''],
+    ['A calm mind is a strong mind.', ''],
+    ['Gratitude turns what you have into enough.', ''],
+    ['Be the reason someone smiles today.', ''],
+    ['Your pace is still progress.', ''],
+    ['Rest without guilt. Recovery is growth too.', ''],
+    ['Kindness costs nothing and changes everything.', ''],
+    ['Look how far you have come, not just how far you have to go.', ''],
+    ['Today is a good day to have a good day.', ''],
+    ['Happiness is built from ordinary days done well.', ''],
+    ['You do not need to have it all figured out to keep moving forward.', ''],
+    ['Let go of what you cannot control. Pour yourself into what you can.', ''],
+    ['A little progress each day adds up to a different life.', ''],
+    ['Celebrate the small wins. They are the big ones in disguise.', ''],
+    ['Surround yourself with people who make you better.', ''],
+    ['Hard days are part of the story, not the end of it.', ''],
+    ['Drink your water, get some sunlight, and be patient with yourself.', ''],
+    ['You are stronger than the thing you are worried about.', ''],
+    ['Make today count, then let it go.', ''],
+    ['Peace begins with how you talk to yourself.', ''],
+    ['Your health is an investment, not an expense.', ''],
+    ['There is always something to be thankful for.', ''],
+    ['Believe in the person you are becoming.', ''],
+    ['Slow down. Notice the good. It is there.', ''],
+    ['A positive mind finds a way. A negative one finds an excuse.', ''],
+    ['What you think, you become.', 'Buddha'],
+    ['Keep your face to the sunshine and you cannot see the shadow.', 'Helen Keller'],
+    ['It always seems impossible until it is done.', 'Nelson Mandela'],
+    ['Happiness depends upon ourselves.', 'Aristotle'],
+    ['Act as if what you do makes a difference. It does.', 'William James']
   ];
 
-  /* Stable per-day pick: the same hash the whole day, a new one at midnight. */
-  function forDay(dateKey) {
-    var s = String(dateKey || '');
-    var hash = 0;
-    for (var i = 0; i < s.length; i++) hash = ((hash << 5) - hash + s.charCodeAt(i)) | 0;
-    var q = QUOTES[Math.abs(hash) % QUOTES.length];
-    return { text: q[0], by: q[1] };
+  var LAST_KEY = 'bkl.lastQuote';
+  var picked = null;
+
+  /* One pick per page load. The index shown last time is remembered so a
+   * refresh can never land on the same line again. */
+  function current() {
+    if (picked) return picked;
+    var last = -1;
+    try { last = Number(localStorage.getItem(LAST_KEY)); } catch (e) {}
+    var i = Math.floor(Math.random() * QUOTES.length);
+    if (i === last) i = (i + 1 + Math.floor(Math.random() * (QUOTES.length - 1))) % QUOTES.length;
+    try { localStorage.setItem(LAST_KEY, String(i)); } catch (e) {}
+    picked = { text: QUOTES[i][0], by: QUOTES[i][1] };
+    return picked;
   }
 
-  global.Quotes = { ALL: QUOTES, forDay: forDay, count: QUOTES.length };
+  global.Quotes = { current: current };
 
 }(window));
